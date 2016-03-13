@@ -1,0 +1,3304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>WMI Code Generator</title>
+<HTA:APPLICATION
+  APPLICATIONNAME="WMI Code Generator"
+  ID="WMIGen"
+  VERSION="9.03"
+  SCROLL="auto"
+  SINGLEINSTANCE="yes"
+  WINDOWSTATE="maximize"/>
+<style type="text/css">
+a
+{
+	color: blue;
+}
+
+body
+{
+	color: white;
+	font-family: arial, sans-serif;
+	font-size: 12pt;
+	margin: 0;
+	padding: 0;
+	filter: progid:DXImageTransform.Microsoft.Gradient(GradientType=0, StartColorStr='#000000', EndColorStr='#FFFFFF');
+}
+
+code, .Code
+{
+	color: #006000;
+	font-family: courier, monospace;
+	white-space: nowrap;
+}
+
+input#SearchField {
+	color: #c0c0c0;
+}
+
+p
+{
+	color: black;
+	font-size: 80%;
+}
+
+td
+{
+	text-align: left;
+}
+
+td.CheckBox
+{
+	text-align: right;
+	vertical-align: top;
+	width: 32px;
+}
+
+td.CheckBoxLabel
+{
+	text-align: left;
+	vertical-align: bottom;
+}
+
+td.Spacer, th.Spacer
+{
+	width: 16px;
+}
+
+.Blue
+{
+	color: blue;
+}
+
+.Button
+{
+	width: 160px;
+	height: 32px;
+}
+
+.ButtonNarrow
+{
+	width: 100px;
+	height: 32px;
+}
+
+.ButtonRow
+{
+	height: 48px;
+	vertical-align: middle;
+}
+
+.Center
+{
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+}
+
+.Help
+{
+	background-color: white;
+	color: black;
+	margin: 10px;
+	max-width: 900px;
+	padding: 10px;
+}
+
+.Left
+{
+	text-align: left;
+}
+
+.Middle
+{
+	vertical-align: middle;
+}
+
+.Red
+{
+	color: red;
+}
+
+.Right
+{
+	text-align: right;
+}
+
+.Top
+{
+	vertical-align: top;
+}
+
+.White
+{
+	color: white;
+}
+
+#CopyrightsBlock
+{
+	height: 48px;
+	padding: 8px 0 8px 0;
+}
+
+@media print
+{
+	a
+	{
+		color: black;
+		text-decoration: none;
+	}
+	
+	body
+	{
+		color: black;
+		font-family: arial, sans-serif;
+		font-size: 12pt;
+		margin: 0;
+		padding: 0;
+		filter: none;
+	}
+	
+	code, .Code
+	{
+		color: black;
+		font-family: courier, monospace;
+	}
+	
+	p
+	{
+		color: black;
+		font-size: 80%;
+	}
+	
+	.Blue
+	{
+		color: black;
+	}
+	
+	.Help
+	{
+		background-color: white;
+		color: black;
+		margin: 10px;
+		max-width: 100%;
+		padding: 10px;
+	}
+	
+	.Red
+	{
+		color: black;
+	}
+	
+	.White
+	{
+		color: black;
+	}
+}
+</style>
+</head>
+
+<script language="VBScript">
+Option Explicit
+
+Dim dummy
+
+Const TristateFalse      =  0
+Const TristateMixed      = -2
+Const TristateTrue       = -1
+Const TristateUseDefault = -2
+
+Const ForAppending = 8
+Const ForReading   = 1
+Const ForWriting   = 2
+
+' Minimum window size
+Dim gviMinHeight, gviMinWidth
+gviMinHeight = Min( 600, window.screen.height )
+gviMinWidth  = Min( 800, window.screen.width  )
+
+' Year to be displayed in copyrights notices
+Dim gviCopyrightsYear
+gviCopyrightsYear = 2016
+
+' Configuration file
+Dim gvsConfigFile
+gvsConfigFile = Left( Self.location.pathname, Len( Self.location.pathname ) - 4 ) & ".cfg"
+
+' Dictionary objects to hold all defaults, permanent settings and session settings
+Dim gvaDefaultsBool, gvaDefaultsStr, gvaSettingsBool, gvaSettingsStr
+Set gvaDefaultsBool = CreateObject( "Scripting.Dictionary" )
+Set gvaDefaultsStr  = CreateObject( "Scripting.Dictionary" )
+Set gvaSettingsBool = CreateObject( "Scripting.Dictionary" )
+Set gvaSettingsStr  = CreateObject( "Scripting.Dictionary" )
+
+' Arrays to hold the classes and the selected class' methods and properties
+Dim gvaClasses( ), gvaMethods( ), gvaProperties( )
+
+' Variables to check if the namespaces and classes have been listed
+Dim gvbClassesListed, gvbNamespacesListed
+gvbClassesListed    = False
+gvbNamespacesListed = False
+
+' Variable to check if the text in the Code window is code or a query result
+Dim gvbCodeView
+gvbCodeView = False
+
+' More global variables
+Dim gvaNamespaces( )
+Dim gvbClassValidate
+Dim gvbCommandlineValidate
+Dim gvbInteractive
+Dim gvbLanguageValidate
+Dim gvbNamespaceValidate
+Dim gvbSearchFieldHasFocus
+Dim gviMaxLen
+Dim gviReqHeight
+Dim gviReqWidth
+Dim gvoClass
+Dim gvoProperty
+Dim gvoWMIService
+Dim gvsClass
+Dim gvsCommandline
+
+gvbCommandlineValidate = True
+gvbClassValidate       = True
+gvbInteractive         = True
+gvbLanguageValidate    = True
+gvbNamespaceValidate   = True
+gviReqHeight           = window.screen.height
+gviReqWidth            = window.screen.width
+gvsCommandline         = WMIGen.CommandLine
+
+
+Sub DebugShowSettings( myTitle )
+	Dim strKey, strMsg
+	strMsg = ""
+	For Each strKey In gvaSettingsBool.Keys
+		strMsg = strMsg & strKey & " = " & gvaSettingsBool.Item( strKey ) & vbCrLf
+	Next
+	For Each strKey In gvaSettingsStr.Keys
+		strMsg = strMsg & strKey & " = " & gvaSettingsStr.Item( strKey ) & vbCrLf
+	Next
+	MsgBox strMsg, vbOKOnly + vbInformation + vbApplicationModal, myTitle
+End Sub
+
+
+Sub ArraySort( ByRef myArray )
+	' Bubble sort algorithm found in Microsoft's Script Repository
+	' http://www.microsoft.com/technet/scriptcenter/resources/qanda/nov04/hey1122.mspx
+	Dim i, j, k, strHolder
+	If UBound( myArray ) > 1 Then
+		For i = UBound( myArray ) - 1 To 0 Step -1
+			For j= 0 to i
+				k = j + 1
+				If UCase( myArray(j) ) > UCase( myArray(k) ) Then
+					strHolder  = myArray(k)
+					myArray(k) = myArray(j)
+					myArray(j) = strHolder
+				End If
+			Next
+		Next
+	End If
+End Sub
+
+
+Function Backup( myFile )
+	' Backup this HTA; the COPY command is used because it handles open files much better than the FileSystemObject does
+	Dim strBackup, strNow, wshShell
+	strNow = Year( Now ) & Right( "0" & Month( Now ), 2 ) & Right( "0" & Day( Now ), 2 ) & "." & Right( "0" & Hour( Now ), 2 ) & Right( "0" & Minute( Now ), 2 ) & Right( "0" & Second( Now ), 2 )
+	strBackup = myFile & "." & WMIGen.Version & ".backup." & strNow
+	Set wshShell = CreateObject( "WScript.Shell" )
+	wshShell.Run "CMD.EXE /C COPY /Y """ & myFile & """ """ & strBackup & """", 7, True
+	Set wshShell = Nothing
+	Backup = strBackup
+End Function
+
+
+Sub ButtonState( )
+	If Trim( Code.value ) = "" Then
+		CodeLabel.innerHTML      = "Code:"
+		CopyCodeButton.disabled  = True
+		CopyCodeButton.title     = ""
+		ClearCodeButton.disabled = True
+		ClearCodeButton.title    = ""
+		SaveCodeButton.disabled  = True
+		SaveCodeButton.title     = ""
+	Else
+		CopyCodeButton.disabled  = False
+		CopyCodeButton.title     = "Press this button to copy the generated code to the clipboard"
+		ClearCodeButton.disabled = False
+		ClearCodeButton.title    = "Press this button to erase the generated code"
+		SaveCodeButton.disabled  = False
+		SaveCodeButton.title     = "Press this button to save the generated code to a file"
+	End If
+End Sub
+
+
+Sub CheckEscape( )
+	If Self.window.event.keyCode = 27 Then
+		OnClickButtonCancel
+	End If
+	If Self.window.event.keyCode = 8 And Settings.style.display = "none" Then
+		OnClickButtonCancel
+	End If
+	If Self.window.event.keyCode = 13 And gvbSearchFieldHasFocus Then
+		Search
+	End If
+End Sub
+
+
+Sub CheckUpdate( )
+	If Not gvaSettingsBool.Item( "NOUPD" ) Then
+		Dim intAnswer, intButtons, lenLatestVer
+		Dim objFSO, wshShell
+		Dim strCurDir, strCurrentVer, strLatestver, strPrompt, strTitle, strZIPFile
+		
+		' Change mouse pointer to hourglass while checking for update
+		document.body.style.cursor = "wait"
+		Set objFSO    = CreateObject( "Scripting.FileSystemObject" )
+		Set wshShell  = CreateObject( "WScript.Shell" )
+		' Clear the IE cache
+		wshShell.Run "RUNDll32.EXE InetCpl.cpl,ClearMyTracksByProcess 8", 7, True
+		strCurrentVer = WMIGen.Version
+		strLatestVer  = TextFromHTML( "http://www.robvanderwoude.com/updates/wmigen.txt" )
+		lenLatestVer  = Len( strLatestVer )
+		If lenLatestVer = 4 Then
+			intAnswer  = vbNo
+			intButtons = vbYesNoCancel + vbApplicationModal + vbInformation
+			If strLatestVer < strCurrentVer Then
+				strTitle  = "Unofficial unsupported version"
+				strPrompt = "You seem to be using a pre-release version (" & strCurrentVer & ") of the WMI Code Generator." _
+				          & vbCrLf & vbCrLf _
+				          & "The latest official release is " & strLatestver _
+				          & vbCrLf & vbCrLf _
+				          & "Do you want to download and install the latest official release?"
+				intAnswer = MsgBox( strPrompt, intButtons + vbDefaultButton2, strTitle )
+			End If
+			If strLatestVer > strCurrentVer Then
+				strTitle  = "Update available"
+				strPrompt = "You are using version " & strCurrentVer & " of the WMI Code Generator." _
+				          & vbCrLf & vbCrLf _
+				          & "The latest official release is " & strLatestver _
+				          & vbCrLf & vbCrLf _
+				          & "Do you want to download and install the update?"
+				intAnswer = MsgBox( strPrompt, intButtons, strTitle )
+			End If
+			If intAnswer = vbYes Then
+				strCurDir  = objFSO.GetParentFolderName( Self.location.pathname )
+				strZIPFile = objFSO.BuildPath( strCurDir, "updatecheck.zip" )
+				' Delete existing ZIP file
+				If objFSO.FileExists( strZIPFile ) Then objFSO.DeleteFile strZIPFile, True
+				' Backup current HTA
+				strTitle  = "Backup saved"
+				strPrompt = "The current HTA has been copied to" & vbCrLf _
+				          & """" & Backup( Self.location.pathname ) & """" & vbCrLf & vbCrLf _
+				          & "Click OK to continue"
+				intAnswer = MsgBox( strPrompt, vbOKCancel + vbApplicationModal + vbInformation, strTitle )
+				If intAnswer = vbOK Then
+					If Download( "http://www.robvanderwoude.com/files/wmigen.zip", strZIPFile ) > 23000 Then
+						' Overwrite current HTA with extracted new version and restart HTA
+						Extract strZIPFile, strCurDir
+						setTimeout "Self.location.reload", 3000, "VBScript"
+					Else
+						' Delete corrupted ZIP file
+						If objFSO.FileExists( strZIPFile ) Then objFSO.DeleteFile strZIPFile, True
+						intButtons = vbOKOnly + vbExclamation + vbApplicationModal
+						strPrompt  = "An error occurred while trying to download ""wmigen.zip""." _
+						           & vbCrLf & vbCrLf _
+						           & "Try again later, or contact the author if the problem persists."
+						strTitle   = "Download Error"
+						MsgBox strPrompt, intButtons, strTitle
+					End If
+				Else
+					wshShell.Run "http://www.robvanderwoude.com/wmigen.php", 3, False
+				End If
+			End If
+		End If
+		Set wshShell = Nothing
+		Set objFSO   = Nothing
+		' Change mouse pointer back to default
+		document.body.style.cursor = "default"
+	End If
+End Sub
+
+
+Sub CheckWindowSize( )
+	Dim smallBoxHeight, maxBoxHeight
+	smallBoxHeight  = Max( 6, CInt( document.body.clientHeight / 100 ) )
+	Code.rows       = Max( 6, CInt( document.body.clientHeight /  75 ) )
+	Code.cols       = CInt( document.body.clientWidth / 9 )
+	Properties.size = smallBoxHeight
+	Methods.size    = smallBoxHeight
+	WMIClasses.size = smallBoxHeight
+End Sub
+
+
+Sub ClearCode( )
+	Code.value = ""
+	ButtonState
+End Sub
+
+
+Sub ConfigReadCommandline( )
+	Dim objFSO
+	Dim strItem, strKey, strUC
+	strUC = UCase( gvsCommandline )
+	For Each strKey In gvaSettingsBool.Keys
+		If InStr( strUC, "/" & strKey ) Then gvaSettingsBool.Item( strKey ) = True
+	Next
+	strItem = GetParameter( gvsCommandline, "CLASS" )
+	If strItem <> "" Then gvaSettingsStr.Item( "CLASS" ) = strItem
+	strItem = GetParameter( gvsCommandline, "LANGUAGE" )
+	If strItem <> "" Then gvaSettingsStr.Item( "LANGUAGE" ) = strItem
+	strItem = GetParameter( gvsCommandline, "NAMESPACE" )
+	If strItem <> "" Then gvaSettingsStr.Item( "NAMESPACE" ) = strItem
+	strItem = GetParameter( gvsCommandline, "SIZE" )
+	If strItem <> "" Then gvaSettingsStr.Item( "SIZE" ) = ValidatedWindowSize( strItem )
+	strItem = GetParameter( gvsCommandline, "SAVE" )
+	Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+	If strItem <> "" Then
+		With objFSO
+			If .FolderExists( .GetParentFolderName( .GetAbsolutePathName( strItem ) ) ) Then
+				gvaSettingsStr.Item( "SAVE" ) = strItem
+			Else
+				gvaSettingsStr.Item( "SAVE" ) = ""
+			End If
+		End With
+	End If
+	If InStr( strUC, "/COPY" )     Then gvaSettingsBool.Item( "COPY" )     = True
+	If InStr( strUC, "/GENERATE" ) Then gvaSettingsBool.Item( "GENERATE" ) = True
+	If InStr( strUC, "/RUN" )      Then gvaSettingsBool.Item( "RUN" )      = True
+	gvbInteractive = True
+	If ( gvaSettingsStr.Item( "NAMESPACE" ) <> "" ) And gvaSettingsStr.Item( "CLASS" ) <> "" Then
+		If gvaSettingsBool.Item( "RUN" ) Or ( gvaSettingsBool.Item( "GENERATE" ) And gvaSettingsStr.Item( "LANGUAGE" ) <> "" ) Then
+			If gvaSettingsBool.Item( "COPY" ) Or gvaSettingsStr.Item( "SAVE" ) <> "" Then
+				gvbInteractive = False
+				gvaSettingsBool.Item( "FAST" )  = True
+				gvaSettingsBool.Item( "NOUPD" ) = True
+			End If
+		End If
+	Else
+		gvaSettingsBool.Item( "COPY" )     = False
+		gvaSettingsBool.Item( "GENERATE" ) = False
+		gvaSettingsBool.Item( "RUN" )      = False
+		gvaSettingsStr.Item( "SAVE" )      = ""
+	End If
+	Set objFSO = Nothing
+End Sub
+
+
+Sub ConfigReadDefaults( )
+	Dim strKey
+	gvaDefaultsBool.Item( "BW" )          = False
+	gvaDefaultsBool.Item( "COPY" )        = False
+	gvaDefaultsBool.Item( "FAST" )        = False
+	gvaDefaultsBool.Item( "GENERATE" )    = False
+	gvaDefaultsBool.Item( "NOPERF" )      = False
+	gvaDefaultsBool.Item( "NOUPD" )       = False
+	gvaDefaultsBool.Item( "LOWRES" )      = False
+	gvaDefaultsBool.Item( "RUN" )         = False
+	gvaDefaultsBool.Item( "SPACES" )      = False
+	gvaDefaultsBool.Item( "WIN32" )       = False
+	gvaDefaultsBool.Item( "WRAP" )        = False
+	gvaDefaultsStr.Item( "CLASS" )        = ""
+	gvaDefaultsStr.Item( "LANGUAGE" )     = "Batch"
+	gvaDefaultsStr.Item( "NAMESPACE" )    = "root/CIMV2"
+	gvaDefaultsStr.Item( "SAVE" )         = ""
+	gvaDefaultsStr.Item( "SIZE" )         = ""
+	For Each strKey In gvaDefaultsBool.Keys
+		gvaSettingsBool.Item( strKey ) = gvaDefaultsBool.Item( strKey )
+	Next
+	For Each strKey In gvaDefaultsStr.Keys
+		gvaSettingsStr.Item( strKey ) = gvaDefaultsStr.Item( strKey )
+	Next
+End Sub
+
+
+Sub ConfigReadFile( )
+	Dim intMinSize, intSize
+	Dim objFile, objFSO
+	Dim strConfig, strItem, strKey, strUConfig
+	Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+	If objFSO.FileExists( gvsConfigFile ) Then
+		' Check config file size
+		Set objFile = objFSO.GetFile( gvsConfigFile )
+		intSize = objFile.Size
+		Set objFile = Nothing
+		' Check minimum required file size by "measuring" command line switch length
+		intMinSize = 9999
+		For Each strKey In gvaSettingsBool.Keys
+			intMinSize = Min( intMinSize, Len( strKey ) )
+		Next
+		' Add 1 for the forward slash
+		intMinSize = intMinSize + 1
+		' Config file is useless if its size is less than the length of the shortest command line switch
+		If intSize < intMinSize Then
+			objFSO.DeleteFile gvsConfigFile, True
+		Else
+			' Read the entire contents of the configuration file
+			Set objFile = objFSO.OpenTextFile( gvsConfigFile, ForReading, False, TristateFalse )
+			strConfig  = Trim( Replace( objFile.ReadAll( ), vbCrLf, " " ) )
+			strUConfig = UCase( strConfig )
+			objFile.Close
+			Set objFile = Nothing
+			If InStr( strUConfig, "/BW" )        Then gvaSettingsBool.Item( "BW" )        = True
+			If InStr( strUConfig, "/FAST" )      Then gvaSettingsBool.Item( "FAST" )      = True
+			If InStr( strUConfig, "/NOPERF" )    Then gvaSettingsBool.Item( "NOPERF" )    = True
+			If InStr( strUConfig, "/NOUPD" )     Then gvaSettingsBool.Item( "NOUPD" )     = True
+			If InStr( strUConfig, "/LOWRES" )    Then gvaSettingsBool.Item( "LOWRES" )    = True
+			If InStr( strUConfig, "/SPACES" )    Then gvaSettingsBool.Item( "SPACES" )    = True
+			If InStr( strUConfig, "/WIN32" )     Then gvaSettingsBool.Item( "WIN32" )     = True
+			If InStr( strUConfig, "/WRAP" )      Then gvaSettingsBool.Item( "WRAP" )      = True
+			strItem = GetParameter( strConfig, "LANGUAGE" )
+			If strItem <> "" Then gvaSettingsStr.Item( "LANGUAGE" ) = strItem
+			strItem = GetParameter( strConfig, "NAMESPACE" )
+			If strItem <> "" Then gvaSettingsStr.Item( "NAMESPACE" ) = strItem
+			strItem = GetParameter( strConfig, "SIZE" )
+			If strItem <> "" Then gvaSettingsStr.Item( "SIZE" ) = ValidatedWindowSize( strItem )
+			Command_Line.value = strConfig
+		End If
+	End If
+	Set objFSO = Nothing
+End Sub
+
+
+Sub ConfigRemoveFile( )
+	Dim objFSO
+	Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+	If objFSO.FileExists( gvsConfigFile ) Then objFSO.DeleteFile gvsConfigFile, True
+	Set objFSO = Nothing
+End Sub
+
+
+Sub ConfigSaveChanges( )
+	Dim objOption
+	gvaSettingsBool.Item( "BW" )        = BW.checked
+	gvaSettingsBool.Item( "FAST" )      = Exclusive_Namespace.checked
+	gvaSettingsBool.Item( "NOPERF" )    = Exclude_Perf.checked
+	gvaSettingsBool.Item( "NOUPD" )     = Not Update_Check.checked
+	gvaSettingsBool.Item( "LOWRES" )    = Resource_Friendly.checked
+	gvaSettingsBool.Item( "SPACES" )    = Use_Spaces.checked
+	gvaSettingsBool.Item( "WIN32" )     = Win32_Only.checked
+	gvaSettingsBool.Item( "WRAP" )      = Word_Wrap.checked
+	gvaSettingsStr.Item( "LANGUAGE" )   = Default_Language.value
+	gvaSettingsStr.Item( "NAMESPACE" )  = Default_Namespace.value
+	For Each objOption In Default_Namespace.options
+		If objOption.selected Then
+			gvaSettingsStr.Item( "NAMESPACE" ) = objOption.value
+		End If
+	Next
+	gvaSettingsStr.Item( "SIZE" ) = ValidatedWindowSize( Window_Size.value )
+	For Each objOption In CodeLanguage.options
+		If objOption.value = gvaSettingsStr.Item( "LANGUAGE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	For Each objOption In Default_Language.options
+		If objOption.value = gvaSettingsStr.Item( "LANGUAGE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	If Not gvbNamespacesListed Then
+		FillNamespacesDropdown
+	End If
+	For Each objOption In Namespaces.options
+		If objOption.value = gvaSettingsStr.Item( "NAMESPACE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	For Each objOption In Default_Namespace.options
+		If objOption.value = gvaSettingsStr.Item( "NAMESPACE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	FillClassesDropdown
+	If gvaSettingsStr.Item( "CLASS" ) <> "" Then
+		For Each objOption In WMIClasses.options
+			If objOption.value = gvaSettingsStr.Item( "CLASS" ) Then
+				objOption.selected = True
+			Else
+				objOption.selected = False
+			End If
+		Next
+	End If
+	WindowSize
+	HandleClassChange
+End Sub
+
+
+Sub ConfigSaveFile( )
+	Dim objFile, objFSO
+	dim strConfig, strKey
+	strConfig = ""
+	For Each strKey In gvaSettingsBool.Keys
+		If gvaSettingsBool.Item( strKey ) Then
+			strConfig = strConfig & " /" & strKey
+		End If
+	Next
+	If gvaSettingsStr.Item( "LANGUAGE" ) <> "" Then
+		If gvaSettingsStr.Item( "LANGUAGE" ) <> gvaDefaultsStr.Item( "LANGUAGE" ) Then
+			strConfig = strConfig & " /LANGUAGE:" & gvaSettingsStr.Item( "LANGUAGE" )
+		End If
+	End If
+	If gvaSettingsStr.Item( "NAMESPACE" ) <> "" Then
+		If gvaSettingsStr.Item( "NAMESPACE" ) <> gvaDefaultsStr.Item( "NAMESPACE" ) Then
+			strConfig = strConfig & " /NAMESPACE:" & gvaSettingsStr.Item( "NAMESPACE" )
+		End If
+	End If
+	If gvaSettingsStr.Item( "SIZE" ) <> "" Then
+		If gvaSettingsStr.Item( "SIZE" ) <> "maximize" Then
+			strConfig = strConfig & " /SIZE:" & gvaSettingsStr.Item( "SIZE" )
+		End If
+	End If
+	Set objFSO  = CreateObject( "Scripting.FileSystemObject" )
+	Set objFile = objFSO.OpenTextFile( gvsConfigFile, ForWriting, True, TristateFalse )
+	objFile.Write Trim( strConfig )
+	objFile.Close
+	Set objFile = Nothing
+	Set objFSO  = Nothing
+	Command_Line.value = Trim( strConfig )
+End Sub
+
+
+Sub ConfigSetDefaults( )
+		Dim strKey
+		For Each strKey In gvaDefaultsBool.Keys
+			gvaSettingsBool.Item( strKey ) = gvaDefaultsBool.Item( strKey )
+		Next
+		For Each strKey In gvaDefaultsStr.Keys
+			gvaSettingsStr.Item( strKey ) = gvaDefaultsStr.Item( strKey )
+		Next
+End Sub
+
+
+Sub ConfigUpdateStatus( )
+	Dim objOption
+	BW.checked = gvaSettingsBool.Item( "BW" )
+	HandleBWChange
+	For Each objOption In CodeLanguage.options
+		If UCase( objOption.value ) = UCase( gvaSettingsStr.Item( "LANGUAGE" ) ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	For Each objOption In Default_Language.options
+		If UCase( objOption.value ) = UCase( gvaSettingsStr.Item( "LANGUAGE" ) ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	If Not gvbNamespacesListed Then
+		FillNamespacesDropdown
+	End If
+	For Each objOption In Namespaces.options
+		If UCase( objOption.value ) = UCase( gvaSettingsStr.Item( "NAMESPACE" ) ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	For Each objOption In Default_Namespace.options
+		If UCase( objOption.value ) = UCase( gvaSettingsStr.Item( "NAMESPACE" ) ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	FillClassesDropdown
+	If gvaSettingsStr.Item( "CLASS" ) <> "" Then
+		For Each objOption In WMIClasses.options
+			If UCase( objOption.value ) = UCase( gvaSettingsStr.Item( "CLASS" ) ) Then
+				objOption.selected = True
+			Else
+				objOption.selected = False
+			End If
+		Next
+	End If
+	WindowSize
+	HandleClassChange
+End Sub
+
+
+Sub CopyCode( )
+	Document.parentWindow.clipboardData.setData "text", Code.value
+End Sub
+
+
+Function CreateLine( myProperty, myMaxLen )
+	' This subroutine will split up a string into separate words if command line switch /SPACES is used:
+	' "SCSILogicalUnit" will be converted to "SCSI Logical Unit"
+	Dim colMatches, intMatches, maxLen, objRE, strProperty
+	maxLen      = myMaxLen
+	strProperty = myProperty
+	If gvaSettingsBool.Item( "SPACES" ) Then
+		maxLen = maxLen + 5
+		Set objRE = New RegExp
+		objRE.Global     = False
+		objRE.IgnoreCase = False
+		' Insert a space between lowwercase and immediately following uppercase letters
+		' e.g. "SCSILogicalUnit" becomes "SCSILogical Unit"
+		objRE.Pattern = "([a-z])([A-Z])"
+		intMatches    = -1
+		Do Until intMatches = 0
+			Set colMatches = objRE.Execute( strProperty )
+			intMatches = colMatches.Count
+			If intMatches > 0 Then
+				strProperty = objRE.Replace( strProperty, colMatches(0).Submatches(0) & " " & colMatches(0).Submatches(1) )
+			End If
+		Loop
+		' Insert a space between the second last and last uppercase letters in a row of uppercase only
+		' e.g. "SCSILogical Unit" becomes "SCSI Logical Unit"
+		objRE.Pattern = "([A-Z]+)([A-Z][a-z])"
+		intMatches    = -1
+		Do Until intMatches = 0
+			Set colMatches = objRE.Execute( strProperty )
+			intMatches = colMatches.Count
+			If intMatches > 0 Then
+				strProperty = objRE.Replace( strProperty, colMatches(0).Submatches(0) & " " & colMatches(0).Submatches(1) )
+			End If
+		Loop
+		Set objRE = Nothing
+	End If
+	CreateLine = Left( strProperty & Space( MaxLen ), MaxLen ) & " :"
+End Function
+
+
+Function Download( myURL, myFile )
+	Dim i, intLen, objFile, objFSO, objHTTP
+	intLen = 0
+	Set objFSO  = CreateObject( "Scripting.FileSystemObject" )
+	Set objFile = objFSO.OpenTextFile( myFile, ForWriting, True )
+	Set objHTTP = CreateObject( "WinHttp.WinHttpRequest.5.1" )
+	objHTTP.Open "GET", myURL, False
+	objHTTP.Send
+	' Write the downloaded byte stream to the target file
+	intLen = LenB( objHTTP.ResponseBody )
+	For i = 1 To intLen
+		objFile.Write Chr( AscB( MidB( objHTTP.ResponseBody, i, 1 ) ) )
+	Next
+	objFile.Close( )
+	Set objHTTP = Nothing
+	Set objFile = Nothing
+	Set objFSO  = Nothing
+	Download = intLen
+End Function
+
+
+Sub EnableSearchButton( )
+	Dim strSearch
+	strSearch = Trim( SearchField.value )
+	If strSearch <> SearchField.value Then SearchField.value = strSearch
+	ButtonSearch.disabled = ( strSearch = "" )
+End Sub
+
+
+Sub EnumNamespaces( myNamespace )
+	Dim intSize
+	Dim colNamespaces, objNamespace, objWMIService
+	intSize = UBound( gvaNamespaces )
+	Set objWMIService = GetObject ( "winmgmts:{impersonationLevel=impersonate}//./" & myNamespace )
+	Set colNamespaces = objWMIService.InstancesOf( "__NAMESPACE" )
+	For Each objNamespace In colNamespaces
+		If Left( objNamespace.Name, 2 ) <> "__" Then
+			intSize = UBound( gvaNamespaces ) + 1
+			ReDim Preserve gvaNamespaces( intSize )
+			gvaNamespaces( intSize ) = myNamespace & "/" & objNamespace.Name
+			EnumNamespaces myNamespace & "/" & objNamespace.Name
+		End If
+	Next
+	gvbNamespacesListed = True
+End Sub
+
+
+Sub Extract( myZIPFile, myTargetDir )
+	Dim intOptions, objShell, objSource, objTarget
+	Set objShell  = CreateObject( "Shell.Application" )
+	Set objSource = objShell.NameSpace( myZIPFile ).Items( )
+	Set objTarget = objShell.NameSpace( myTargetDir )
+	' These are the available CopyHere options, according to MSDN
+	' (http://msdn2.microsoft.com/en-us/library/ms723207.aspx).
+	' On my test systems, however, the options were completely ignored.
+	'      4: Do not display a progress dialog box.
+	'      8: Give the file a new name in a move, copy, or rename operation if a file with the target name already exists.
+	'     16: Click "Yes to All" in any dialog box that is displayed.
+	'     64: Preserve undo information, if possible.
+	'    128: Perform the operation on files only if a wildcard file name (*.*) is specified.
+	'    256: Display a progress dialog box but do not show the file names.
+	'    512: Do not confirm the creation of a new directory if the operation requires one to be created.
+	'   1024: Do not display a user interface if an error occurs.
+	'   4096: Only operate in the local directory. Don't operate recursively into subdirectories.
+	'   8192: Do not copy connected files as a group. Only copy the specified files.
+	intOptions = 16 + 256
+	objTarget.CopyHere objSource, intOptions
+	Set objSource = Nothing
+	Set objTarget = Nothing
+	Set objShell  = Nothing
+End Sub
+
+
+Sub FillClassesDropdown( )
+	Dim blnCheck
+	Dim intSize, i, j, k
+	Dim colClasses, objClass, objNewOption, objWMIService
+	intSize = 0
+	' Change cursor to hourglass while loading WMI class list
+	Document.body.style.cursor = "wait"
+	' Enable custom error handling
+	On Error Resume Next
+	Set objWMIService = GetObject( "winmgmts:{impersonationLevel=impersonate}" & gvaSettingsStr.Item( "NAMESPACE" ) )
+	If Err Then
+		MsgBox "Could not connect to " & gvaSettingsStr.Item( "NAMESPACE" ), vbOKOnly, "Namespace Error"
+		Exit Sub
+	End If
+	If gvaSettingsStr.Item( "CLASS" ) <> "" And gvaSettingsBool.Item( "FAST" ) Then
+		ReDim gvaClasses(0)
+		gvaClasses(0) = gvaSettingsStr.Item( "CLASS" )
+	Else
+		Set colClasses = objWMIService.SubClassesOf
+		If Err Then
+			MsgBox "Error " & Err.Number & ": " & Err.Description, vbOKOnly, "Error"
+			Exit Sub
+		End If
+		' Store the list of classes in an array
+		For Each objClass In colClasses
+			' List only Win32_* classes if /WIN32 was used
+			If Left( UCase( objClass.Path_.Class ), 6 ) = "WIN32_" Or Not gvaSettingsBool.Item( "WIN32" ) Then
+				' Skip Win32_Perf* classes if /NOPERF was used
+				If Left( UCase( objClass.Path_.Class ), 10 ) <> "WIN32_PERF" Or Not gvaSettingsBool.Item( "NOPERF" ) Then
+					' Skip WMI systemm properties starting with a double underscore
+					If Left( objClass.Path_.Class, 2 ) <> "__" Then
+						ReDim Preserve gvaClasses( intSize )
+						gvaClasses( intSize ) = objClass.Path_.Class
+						intSize = intSize + 1
+					End If
+				End If
+			End If
+		Next
+	End If
+	If IsArray( gvaClasses ) Then
+		If UBound( gvaClasses ) > 1 Then
+			' Sort the classes
+			ArraySort gvaClasses
+		End if
+		' First purge the classes list
+		WMIClasses.innerHTML = ""
+		' Next repopulate the classes list
+		If gvaSettingsStr.Item( "CLASS" ) = "" Then
+			blnCheck = True
+		Else
+			blnCheck = False
+		End If
+		For i = 0 To UBound( gvaClasses )
+			Set objNewOption  = document.createElement( "OPTION" )
+			If CInt( i / 2 ) <> ( i / 2 ) Then
+				objNewOption.style.backgroundcolor = "#F0F0F0"
+			End If
+			objNewOption.text  = gvaClasses(i)
+			objNewOption.value = gvaClasses(i)
+			If gvaSettingsStr.Item( "CLASS" ) = "" Then
+				If i = 0 Then
+					objNewOption.selected = True
+				End If
+			Else
+				If UCase( gvaClasses(i) ) = UCase( gvaSettingsStr.Item( "CLASS" ) ) Then
+					objNewOption.selected = True
+					blnCheck              = True
+				End If
+			End If
+			WMIClasses.options.add( objNewOption )
+		Next
+		If Not blnCheck Then
+			gvbCommandlineValidate = False
+			gvbClassValidate       = False
+		End If
+	End If
+	' Change cursor back to default
+	Document.body.style.cursor = "default"
+	On Error Goto 0
+	HandleClassChange
+End Sub
+
+
+Sub FillNamespacesDropdown( )
+	Dim blnCheck
+	Dim intSize, i, j, k
+	Dim objNamespace, objNewOption, objNewOption2
+	intSize = 0
+	' Change cursor to hourglass while loading WMI class list
+	Document.body.style.cursor = "wait"
+	' Enable custom error handling
+	If gvaSettingsBool.Item( "FAST" ) Then
+		ReDim gvaNamespaces(0)
+		gvaNamespaces(0) = gvaSettingsStr.Item( "NAMESPACE" )
+	Else
+		' Get a list of available namespaces
+		ReDim Preserve gvaNamespaces(0)
+		gvaNamespaces(0) = "root"
+		EnumNamespaces( "root" )
+		' Sort the array of namespaces
+		ArraySort gvaNamespaces
+	End If
+	' Populate the namespaces list
+	If gvaSettingsStr.Item( "NAMESPACE" ) = "" Then
+		blnCheck = True
+	Else
+		blnCheck = False
+	End If
+	For i = 0 To UBound( gvaNamespaces )
+		Set objNewOption  = document.createElement( "OPTION" )
+		Set objNewOption2 = document.createElement( "OPTION" )
+		If CInt( i / 2 ) <> ( i / 2 ) Then
+			objNewOption.style.backgroundcolor  = "#F0F0F0"
+			objNewOption2.style.backgroundcolor = "#F0F0F0"
+		End If
+		objNewOption.text   = gvaNamespaces(i)
+		objNewOption.value  = gvaNamespaces(i)
+		objNewOption2.text  = gvaNamespaces(i)
+		objNewOption2.value = gvaNamespaces(i)
+		If gvaSettingsStr.Item( "NAMESPACE" ) = "" Then
+			If i = 0 Then
+				objNewOption.selected  = True
+				objNewOption2.selected = True
+			Else
+				objNewOption.selected  = False
+				objNewOption2.selected = False
+			End If
+		Else
+			If UCase( objNewOption.text ) = UCase( gvaSettingsStr.Item( "NAMESPACE" ) ) Then
+				objNewOption.selected  = True
+				objNewOption2.selected = True
+				gvaSettingsStr.Item( "NAMESPACE" ) = objNewOption.text
+				blnCheck = True
+			Else
+				objNewOption.selected  = False
+				objNewOption2.selected = False
+			End If
+		End If
+		Namespaces.options.add( objNewOption )
+		Default_Namespace.options.add( objNewOption2 )
+	Next
+	If Not blnCheck Then
+		gvbCommandlineValidate = False
+		gvbNamespaceValidate   = False
+	End If
+	' Change cursor back to default
+	Document.body.style.cursor = "default"
+	HandleClassChange
+End Sub
+
+
+Function GetExt( myFile )
+	Dim strExt, strFile, strNewExt
+	strFile = myFile
+	GetExt  = strFile
+	If Trim( strFile ) = "" Then Exit Function
+	' If .* was specified for the extension, replace it based on the language of choice
+	strExt  = Mid( strFile, InStrRev( strFile, "." ) )
+	If strExt = ".*" Then
+		If gvbCodeView Then
+			' If gvbCodeView is true, the generated text is code
+			Select Case UCase( gvaSettingsStr.Item( "LANGUAGE" ) )
+				Case "BATCH":
+					strNewExt = ".bat"
+	            case "C#":
+	            	strNewExt = ".cs"
+	            Case "DELPHI":
+	            	strNewExt = ".pas"
+	            Case "F#":
+	            	strNewExt = ".fs"
+	            Case "JAVA":
+	            	strNewExt = ".java"
+	            Case "JSCRIPT":
+	            	strNewExt = ".js"
+	            Case "KIXTART":
+	            	strNewExt = ".kix"
+	            Case "LUA":
+	            	strNewExt = ".lua"
+	            Case "OBJECTPASCAL":
+	            	strNewExt = ".pas"
+	            Case "OBJECTREXX":
+	            	strNewExt = ".rex"
+	            Case "PERL":
+	            	strNewExt = ".pl"
+	            Case "POWERSHELL":
+	            	strNewExt = ".ps1"
+	            case "PYTHON":
+	            	strNewExt = ".py"
+	            Case "RUBY":
+	            	strNewExt = ".rb"
+	            Case "VB.NET":
+	            	strNewExt = ".vb"
+	            Case "VBSCRIPT":
+	            	strNewExt = ".vbs"
+			End Select
+		Else
+			' If gvbCodeView is false, the generated text is not code but a query result
+			strNewExt = ".txt"
+		End If
+		strFile = Mid( strFile, 1, Len( strFile ) - 2 ) & strNewExt
+	End If
+	GetExt = strFile
+End Function
+
+
+Sub GetMSDNHelp( )
+	Dim objOption, strClass, strMember, urlHelp, wshShell
+	Set wshShell = CreateObject( "WScript.Shell" )
+	' Check which class is selected
+	For Each objOption In WMIClasses.options
+		If objOption.selected = True Then
+			strClass = Trim( objOption.text) & "+class"
+		End If
+	Next
+	' Check which Property is selected, if any
+	strMember = ""
+	For Each objOption In Properties.options
+		If objOption.selected = True Then
+			strMember = "+" & Trim( objOption.text ) & "+property"
+		End If
+	Next
+	' Check which Method is selected, if any
+	For Each objOption In Methods.options
+		If objOption.selected = True Then
+			strMember = "+" & Trim( objOption.text ) & "+method"
+		End If
+	Next
+	' Google search techniques learned from
+	' http://www.seroundtable.com/archives/015944.html
+	urlHelp = "https://www.google.com/search?q=" & strClass & strMember & "&site=msdn.microsoft.com&btnI=745&pws=0"
+	wshShell.Run urlHelp, 3, False
+End Sub
+
+
+Function GetParameter( myString, myParameter )
+	' Extract switch value from command line,
+	' e.g. GetParameter( "/FAST /LANGUAGE:C# /NOUPD", "LANGUAGE" ) to extract "C#"
+	Dim strItem, strParameter, strString
+	' Default return value is an empty string
+	GetParameter = ""
+	strParameter = UCase( myParameter )
+	myString     = Trim( myString )
+	strString    = UCase( myString )
+	If InStr( strString, "/" & strParameter & ":" ) Then
+		' Step 1: extract switch and everything following it, e.g. "/LANGUAGE:C# /NOUPD"
+		strItem = Mid( myString, InStr( strString, "/" & strParameter & ":" ) )
+		' Check if there is anything following the switch and colon
+		If Len( strItem ) > Len( "/" & strParameter & ":" ) Then
+			' Step 2: remove the switch name and colon, e.g. in our example this leaves us with "C# /NOUPD"
+			strItem = Mid( strItem, Len( "/" & strParameter & ":" ) + 1 )
+			' Check again if there is anything left to parse
+			If Len( strItem ) > 1 Then
+				' Check if the value starts with a doublequote
+				If Left( strItem, 1 ) = """" Then
+					' Remove the opening doublequote
+					strItem = Mid( strItem, 2 )
+					' Remove the closing doublequote and everything after it
+					strItem = Left( strItem, InStr( strItem, """" ) - 1 )
+				Else
+					' If not in doublequotes, remove the first space and everything following it,
+					' e.g. in our example this leaves us with "C#"
+					If InStr( strItem, " " ) Then strItem = Left( strItem, InStr( strItem, " " ) - 1 )
+				End If
+				' Return the result
+				GetParameter = Trim( strItem )
+			End If
+		End If
+	End If
+End Function
+
+
+Sub HandleBWChange( )
+	Dim objRE, objTag
+	Set objRE = New RegExp
+	If BW.checked Then
+		gvaDefaultsBool.Item( "BW" )        = True
+		document.body.style.color           = "black"
+		document.body.style.filter          = "none"
+		For Each objTag In document.getElementsByTagName( "code" )
+			objTag.style.color = "black"
+		Next
+		objRE.Pattern = "(^| )Code( |$)"
+		For Each objTag In document.body.getElementsByTagName( "*" ) ' Selects all tags ...
+			If objRE.Test( objTag.className ) Then ' ... with class "Code"
+				objTag.style.color = "black"
+			End If
+		Next
+		objRE.Pattern = "(^| )Red( |$)"
+		For Each objTag In document.body.getElementsByTagName( "*" ) ' Selects all tags ...
+			If objRE.Test( objTag.className ) Then ' ... with class "Red"
+				objTag.style.color = "black"
+			End If
+		Next
+	Else
+		gvaDefaultsBool.Item( "BW" )        = False
+		document.body.style.color           = "white"
+		document.body.style.filter          = "progid:DXImageTransform.Microsoft.Gradient(GradientType=0, StartColorStr='#000000', EndColorStr='#FFFFFF');"
+		For Each objTag In document.getElementsByTagName( "code" )
+			objTag.style.color = "#006000"
+		Next
+		objRE.Pattern = "(^| )Code( |$)"
+		For Each objTag In document.body.getElementsByTagName( "*" ) ' Selects all tags ...
+			If objRE.Test( objTag.className ) Then ' ... with class "Code"
+				objTag.style.color = "#006000"
+			End If
+		Next
+		objRE.Pattern = "(^| )Red( |$)"
+		For Each objTag In document.body.getElementsByTagName( "*" ) ' Selects all tags ...
+			If objRE.Test( objTag.className ) Then ' ... with class "Red"
+				objTag.style.color = "red"
+			End If
+		Next
+	End If
+	Set objRE = Nothing
+End Sub
+
+
+Sub HandleClassChange( )
+	Dim intMethods, intProperties, i, j, k
+	Dim objClass, objMethod, objNewOption, objOption, objProperty, objWMIService
+	Dim strClass, strOption
+	gvbCodeView = False
+	' Purge the Methods list
+	For Each objMethod in Methods.options
+		objMethod.RemoveNode
+	Next
+	ReDim gvaMethods(0)
+	intMethods = 0
+	' Purge the Properties list
+	For Each objProperty in Properties.options
+		objProperty.RemoveNode
+	Next
+	ReDim gvaProperties(0)
+	intProperties = 0
+	' Change cursor to hourglass while loading the class' members lists
+	Document.body.style.cursor = "wait"
+	For Each objOption In WMIClasses.Options
+		If objOption.selected = True Then
+			strClass = objOption.text
+			Set objWMIService = GetObject( "winmgmts:{impersonationLevel=impersonate}" & gvaSettingsStr.Item( "NAMESPACE" ) )
+			Set objClass      = objWMIService.Get( strClass )
+			' Store the list of methods in an array
+			For Each objMethod In objClass.Methods_
+				ReDim Preserve gvaMethods( intMethods )
+				gvaMethods( intMethods ) = objMethod.Name
+				intMethods = intMethods + 1
+			Next
+			If IsArray( gvaMethods ) Then
+				' Sort the methods list
+				ArraySort gvaMethods
+			End If
+			' Populate the Methods list
+			i = 0
+			For Each strOption in gvaMethods
+				Set objNewOption  = document.createElement( "OPTION" )
+				If CInt( i / 2 ) <> ( i / 2 ) Then
+					objNewOption.style.backgroundcolor = "#F0F0F0"
+				End If
+				objNewOption.text = strOption
+				Methods.options.Add( objNewOption )
+				i = i + 1
+			Next
+			' Store the list of properties in an array
+			For Each objProperty In objClass.Properties_
+				ReDim Preserve gvaProperties( intProperties )
+				gvaProperties( intProperties ) = objProperty.Name
+				intProperties = intProperties + 1
+			Next
+			If IsArray( gvaProperties ) Then
+				' Sort the properties list
+				ArraySort gvaProperties
+			End If
+			' Populate the Properties list
+			i = 0
+			For Each strOption in gvaProperties
+				Set objNewOption  = document.createElement( "OPTION" )
+				If CInt( i / 2 ) <> ( i / 2 ) Then
+					objNewOption.style.backgroundcolor = "#F0F0F0"
+				End If
+				objNewOption.text = strOption
+				Properties.options.Add( objNewOption )
+				i = i + 1
+			Next
+		End If
+	Next
+	gvbClassesListed = True
+	' Change cursor back to default
+	Document.body.style.cursor = "default"
+	Code.value = ""
+	ButtonState
+End Sub
+
+
+Sub HandleLanguageChange( )
+	gvaSettingsStr.Item( "LANGUAGE" ) = CodeLanguage.value
+	gvbCodeView = False
+	If Trim( Code.value ) = "" Then
+		ButtonState
+		Code.value = ""
+	Else
+		ShowCode
+	End If
+End Sub
+
+
+Sub HandleNamespaceChange( )
+	Dim objOption
+	gvbCodeView = False
+	WMIClasses.innerHTML = ""
+	Code.value           = ""
+	Methods.innerHTML    = ""
+	Properties.innerHTML = ""
+	ButtonState
+	For Each objOption In Namespaces.options
+		If objOption.selected = True Then
+			gvaSettingsStr.Item( "NAMESPACE" ) = objOption.text
+		End If
+	Next
+	FillClassesDropdown
+End Sub
+
+
+Sub ShowHelp( )
+	Main.style.display     = "none"
+	Settings.style.display = "none"
+	Help.style.display     = "block"
+	Credits.style.display  = "none"
+End Sub
+
+
+Function IsAdmin( showMessage )
+    ' Based on code by Denis St-Pierre
+    Dim intbuttons, intRC
+    Dim wshShell
+    Dim strMsg, strTitle
+    IsAdmin = False
+    Set wshShell = CreateObject( "WScript.Shell" )
+    On Error Resume Next
+    intRC = wshShell.Run( "CMD /C OPENFILES > NUL 2>&1", 7, True )
+    If Err Then intRC = 1
+    On Error Goto 0
+'	Set wshShell = Nothing
+    If intRC = 0 Then
+    	IsAdmin = True
+    Else
+		If showMessage Then
+	   		intButtons = vbOKOnly + vbInformation + vbApplicationModal
+			strMsg     = "This HTA requires elevated privileges." & vbCrLf & vbCrLf _
+			           & "Please run this HTA as administrator."  & vbCrLf & vbCrLf & vbCrLf & vbCrLf _
+			           & "On some 64-bit systems, you may still get this message, wether running with elevated privileges or not." & vbCrLf & vbCrLf _
+			           & "Usually this is caused by HTAs being incorrectly associated with the 32-bit MSHTA version (%windir%\SysWOW64\mshta.exe)." & vbCrLf & vbCrLf _
+			           & "In that case, add the path to the proper (64-bit) MSHTA to this HTA's command line:" & vbCrLf & vbCrLf & vbCrLf _
+			           & """%windir%\system32\mshta.exe"" """ & Self.location.pathname & """"
+			strTitle   = "Elevated privileges required"
+			MsgBox strMsg, intButtons, strTitle
+		End If
+	End If
+End Function
+
+
+Function Max( num1, num2 )
+	If num1 > num2 Then
+		Max = num1
+	Else
+		Max = num2
+	End If
+End Function
+
+
+Function Min( num1, num2 )
+	If num1 < num2 Then
+		Min = num1
+	Else
+		Min = num2
+	End If
+End Function
+
+
+Sub OnClickButtonCancel( )
+	Main.style.display     = "block"
+	Settings.style.display = "none"
+	Help.style.display     = "none"
+	Credits.style.display  = "none"
+End Sub
+
+
+Sub OnClickButtonEditSettings( )
+	Dim objFile, objFSO, strConfig, wshShell
+	Set objFSO   = CreateObject( "Scripting.FileSystemObject" )
+	Set wshShell = CreateObject( "WScript.Shell" )
+	wshShell.Run "notepad.exe """ & gvsConfigFile & """", 3, True
+	Set wshShell = Nothing
+	Set objFSO   = Nothing
+	ConfigReadFile
+	ConfigUpdateStatus
+End Sub
+
+
+Sub OnClickButtonResetSettings( )
+	ConfigRemoveFile
+	ConfigReadDefaults
+	ConfigSetDefaults
+	ConfigUpdateStatus
+End Sub
+
+
+Sub OnClickButtonSaveSettings( )
+	ConfigSaveChanges
+	ConfigSaveFile
+	ConfigUpdateStatus
+	Main.style.display     = "block"
+	Settings.style.display = "none"
+	Help.style.display     = "none"
+	Credits.style.display  = "none"
+End Sub
+
+
+Sub OnClickButtonSettings( )
+	Dim objFile, objFSO, objOption
+	Main.style.display     = "none"
+	Settings.style.display = "block"
+	Help.style.display     = "none"
+	Credits.style.display  = "none"
+	If gvaSettingsStr.Item( "SIZE" ) = "" Then
+		Window_Size.value = "maximize"
+	Else
+		Window_Size.value = gvaSettingsStr.Item( "SIZE" )
+	End If
+	For Each objOption In Default_Language.options
+		If objOption.value = gvaSettingsStr.Item( "LANGUAGE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	For Each objOption In Default_Namespace.options
+		If objOption.value = gvaSettingsStr.Item( "NAMESPACE" ) Then
+			objOption.selected = True
+		Else
+			objOption.selected = False
+		End If
+	Next
+	Exclusive_Namespace.checked = gvaSettingsBool.Item( "FAST" )
+	Win32_Only.checked          = gvaSettingsBool.Item( "WIN32" )
+	Exclude_Perf.checked        = gvaSettingsBool.Item( "NOPERF" )
+	Resource_Friendly.checked   = gvaSettingsBool.Item( "LOWRES" )
+	Use_Spaces.checked          = gvaSettingsBool.Item( "SPACES" )
+	Word_Wrap.checked           = gvaSettingsBool.Item( "WRAP" )
+	Update_Check.checked        = Not gvaSettingsBool.Item( "NOUPD" )
+	BW.checked                  = gvaSettingsBool.Item( "BW" )
+	Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+	If objFSO.FileExists( gvsConfigFile ) Then
+		Set objFile = objFSO.OpenTextFile( gvsConfigFile, ForReading, False, TristateFalse )
+		Command_Line.value = Trim( Replace( objFile.ReadAll( ), vbCrLf, " " ) )
+		objFile.Close
+		Set objFile = Nothing
+	End If
+	Set objFSO = Nothing
+End Sub
+
+
+Sub RunCode( )
+	Dim i, maxLen
+	Dim colItems, objItem, objOption, objProperty, objWMIService
+	Dim strClass, strCode, strProperty
+	gvbCodeView = False
+	' Set word wrap
+	If gvaSettingsBool.Item( "WRAP" ) Then
+		Code.wrap = "soft"
+	Else
+		Code.wrap = "off"
+	End If
+	strClass = ""
+	For Each objOption In WMIClasses.Options
+		If objOption.selected = True Then
+			strClass = Trim( objOption.text )
+		End If
+	Next
+	If strClass = "" Then
+		ButtonState
+		Exit Sub
+	End If
+	i = 0
+	For Each objOption in Properties.options
+		If Trim( objOption.text ) <> "" Then
+			i = i + 1
+		End If
+	Next
+	If i = 0 Then
+		ButtonState
+		Exit Sub
+	End If
+	' Change mouse pointer to hourglass while running the code
+	Document.body.style.cursor = "wait"
+	Code.value                 = " . . . Please Wait . . ."
+	CodeLabel.innerHTML        = "Result:"
+	On Error Resume Next
+	Set objWMIService = GetObject( "winmgmts://./" & gvaSettingsStr.Item( "NAMESPACE" ) )
+	Set colItems      = objWMIService.InstancesOf( strClass )
+	If colItems.Count = 1 Then
+		strCode = "1 instance:"
+	Else
+		strCode = colItems.Count & " instances:"
+	End If
+	strCode = strCode & vbCrLf & vbCrLf
+	maxLen = 0
+	For Each objItem In colItems
+		For Each objProperty In objItem.Properties_
+			If Len( objProperty.Name ) > maxLen Then maxLen = Len( objProperty.Name )
+		Next
+	Next
+	For Each objItem In colItems
+		For Each objProperty In objItem.Properties_
+			strProperty = objProperty.Name
+			strCode = strCode & CreateLine( strProperty, maxLen ) & " "
+			If IsArray( objItem.Properties_.Item( strProperty, 0 ) ) Then
+				strCode = strCode & Join( objItem.Properties_.Item( strProperty, 0 ), ";" )
+			Else
+				strCode = strCode & objItem.Properties_.Item( strProperty, 0 )
+			End If
+			strCode = strCode & vbCrLf
+		Next
+		strCode = strCode & vbCrLf
+	Next
+	On Error Goto 0
+	Code.value = strCode
+	Code.title = "After pressing the 'Generate Code' button again, the generated code to display the available properties and their values for the selected WMI class and scripting language will be shown here once more"
+	ButtonState
+	' Change mouse pointer back to default
+	Document.body.style.cursor  = "default"
+End Sub
+
+
+Sub SaveCode( )
+	Dim intAnswer, intButtons
+	Dim objExec, objFile, objFSO, wshShell
+	Dim strCommand, strExt, strFile, strFolder, strMsg, strNewExt, strSaveFileBox, strTitle, strType
+	strFile = gvaSettingsStr.Item( "SAVE" )
+	Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+	strSaveFileBox = Which( "SaveFileBox.exe" )
+	If strFile = "" Or gvbInteractive Then
+		If strSaveFileBox = "" Then
+			strTitle = "Enter File Name"
+			strMsg   = "Please enter the file (path and) name to save the generated code to:"
+			strFile  = Trim( InputBox( strMsg, strTitle, strFile ) )
+		Else
+			strExt     = Mid( GetExt( "dummy.*" ), 6 )
+			strType    = gvaSettingsStr.Item( "LANGUAGE" ) & " files (*" & strExt & ")|*" & strExt
+			strTitle   = "Save To File"
+			strCommand = "SaveFileBox.exe """ & strType & """ ""."" """ & strTitle & """ /Q"
+			Set wshShell = CreateObject( "WScript.Shell" )
+			Set objExec  = wshShell.Exec( strCommand )
+			Do While objExec.Status = 0
+				Sleep 1
+			Loop
+			strFile = objExec.StdOut.ReadLine( )
+			Set objExec  = Nothing
+			Set wshShell = Nothing
+		End If
+		If strFile = "" Then
+			intButtons = vbOKOnly + vbCritical + vbApplicationModal
+			strTitle   = "Invalid Path"
+			strMsg     = "No file was specified." & vbCrLf & vbCrLf & "Data could not be saved!"
+			MsgBox strMsg, intButtons, strTitle
+			Exit Sub
+		End If
+		strFolder = objFSO.GetParentFolderName( strFile )
+		If Not strFolder = "" Then
+			If Not objFSO.FolderExists( strFolder ) Then
+				intButtons = vbOKOnly + vbCritical + vbApplicationModal
+				strTitle   = "Invalid Path"
+				strMsg     = "The specified folder does not exist." & vbCrLf & vbCrLf & "Data could not be saved!"
+				MsgBox strMsg, intButtons, strTitle
+				Set objFSO = Nothing
+				Exit Sub
+			End If
+		End If
+	End If
+	' If .* was specified for the extension, replace it based on the language of choice
+	strFile = GetExt( strFile )
+	' If the specified output file exists, delete it first
+	If objFSO.FileExists( strFile ) Then objFSO.DeleteFile strFile, True
+	' Open the file for writing
+	Set objFile = objFSO.OpenTextFile( strFile, ForWriting, True, TristateFalse )
+	objFile.Write Code.value
+	objFile.Close
+	If gvbInteractive Then
+		intButtons = vbOKOnly + vbInformation + vbApplicationModal
+		strTitle   = "File Saved"
+		strMsg     = "The file was saved as" & vbCrLf & vbCrLf & objFSO.GetAbsolutePathName( strFile )
+		MsgBox strMsg, intButtons, strTitle
+	End If
+	Set objFile = Nothing
+	Set objFSO  = Nothing
+End Sub
+
+
+Sub Search( )
+	Dim blnFound, i, intInitialClass, intSelected, objOption, strInitialClass, strSearch
+	strSearch = Trim( SearchField.value )
+	If strSearch = "" Then
+		ButtonSearch.disabled = True
+		Exit Sub
+	End If
+	intSelected = -1
+	For i = 0 To WMIClasses.options.length - 1
+		Set objOption = WMIClasses.options(i)
+		If objOption.selected Then
+			strInitialClass = objOption.value
+			intInitialClass = i
+			intSelected     = i
+			blnFound        = False
+		End If
+		If intSelected > -1 Then
+			If intInitialClass < i Then
+				If InStr( UCase( objOption.text ), UCase( strSearch ) ) Then
+					blnFound           = True
+					intSelected        = i
+					objOption.selected = True
+					Exit For
+				End If
+			End If
+		End If
+	Next
+	If Not blnFound Then
+		For i = 0 To intSelected
+			Set objOption = WMIClasses.options(i)
+			If InStr( UCase( objOption.text ), UCase( strSearch ) ) Then
+				blnFound           = True
+				intSelected        = i
+				objOption.selected = True
+				Exit For
+			End If
+		Next
+	End If
+	ButtonSearch.disabled = Not blnFound
+	If blnFound Then HandleClassChange
+End Sub
+
+
+Sub SearchBlur( )
+	If SearchField.value = "" Then
+		SearchField.value       = "Search for a WMI class"
+		SearchField.style.color = "#c0c0c0"
+	End If
+	gvbSearchFieldHasFocus = False
+End Sub
+
+
+Sub SearchFocus( )
+	If SearchField.value = "Search for a WMI class" Then
+		SearchField.value       = ""
+		SearchField.style.color = "black"
+	End If
+	gvbSearchFieldHasFocus = True
+End Sub
+
+
+Sub ShowBatchCode( )
+	Dim strCode, strNamespace
+	If UCase( gvaSettingsStr.Item( "NAMESPACE" ) ) = "ROOT/CIMV2" Then
+		strNamespace = ""
+	Else
+		strNamespace = " /Namespace:\\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" )
+	End If
+	strCode = "@ECHO OFF\n" _
+	        & ":: WMI query to list all properties and values of the \\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & ":: This batch file was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & ":: http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "IF ""%~1""=="""" (\n" _
+	        & "\tSET Node=%ComputerName%\n" _
+	        & ") ELSE (\n" _
+	        & "\tSET Node=%~1\n" _
+	        & ")\n\n" _
+	        & "FOR /F %%A IN ('WMIC.EXE /Node:""%Node%""" & strNamespace & " Path " & gvsClass & " Get /Format:CSV ^| MORE /E +2 ^| FIND /C "",""') DO (\n" _
+	        & "\tIF %%A EQU 1 (\n" _
+	        & "\t\tECHO 1 instance:\n" _
+	        & "\t) ELSE (\n" _
+	        & "\t\tECHO %%A instances:\n" _
+	        & "\t)\n" _
+	        & ")\n\n" _
+	        & "WMIC.EXE /Node:""%Node%""" & strNamespace & " Path " & gvsClass & " Get /Format:LIST\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowCode( )
+	Dim i, objOption
+	gvbCodeView = False
+	' Change mouse pointer to hourglass while running the code
+	Document.body.style.cursor = "wait"
+	Codelabel.innerHTML        = "Code:"
+	' Set word wrap
+	If gvaSettingsBool.Item( "WRAP" ) Then
+		Code.wrap = "soft"
+	Else
+		Code.wrap = "off"
+	End If
+	gvsClass = ""
+	For Each objOption In WMIClasses.Options
+		If objOption.selected = True Then
+			gvsClass = Trim( objOption.value )
+		End If
+	Next
+	If gvsClass = "" Then
+		ButtonState
+		Exit Sub
+	End If
+	' Check if there are any properties
+	i = 0
+	For Each objOption in Properties.options
+		If Trim( objOption.text ) <> "" Then
+			i = i + 1
+		End If
+	Next
+	If i = 0 Then
+		ButtonState
+		Exit Sub
+	End If
+	gvbCodeView = True
+	Set gvoWMIService = GetObject( "winmgmts:{impersonationLevel=impersonate}" & gvaSettingsStr.Item( "NAMESPACE" ) )
+	Set gvoClass      = gvoWMIService.Get( gvsClass )
+	gviMaxLen = 0
+	For Each gvoProperty In gvoClass.Properties_
+		If Len( gvoProperty.Name ) > gviMaxLen Then
+			gviMaxLen = Len( gvoProperty.Name )
+		End If
+	Next
+	Select Case CodeLanguage.value
+		Case "Batch"
+			ShowBatchCode
+		Case "C#"
+			ShowCSharpCode
+		Case "Delphi", "ObjectPascal"
+			ShowPascalCode
+		Case "F#"
+			ShowFSharpCode
+		Case "Java"
+			ShowJavaCode
+		Case "JScript"
+			ShowJScriptCode
+		Case "KiXtart"
+			ShowKiXtartCode
+		Case "Lua"
+			ShowLuaCode
+		Case "ObjectRexx"
+			ShowObjectRexxCode
+		Case "Perl"
+			ShowPerlCode
+		Case "PowerShell"
+			ShowPowerShellCode
+		Case "Python"
+			ShowPythonCode
+		Case "Ruby"
+			ShowRubyCode
+		Case "VB.NET"
+			ShowVBDotNETCode
+		Case "VBScript"
+			ShowVBScriptCode
+	End Select
+	Set gvoClass      = Nothing
+	Set gvoWMIService = Nothing
+	' Change mouse pointer back to default
+	Document.body.style.cursor  = "default"
+	Code.title = "After pressing the 'Run WMI Code' button, the generated (VBScript) code will be executed, and the result will be shown here"
+End Sub
+
+
+Sub ShowCredits( )
+	Main.style.display     = "none"
+	Settings.style.display = "none"
+	Help.style.display     = "none"
+	Credits.style.display  = "block"
+End Sub
+
+
+Sub ShowCSharpCode( )
+	Dim intCIMType
+	Dim objProperty
+	Dim strCIMType, strCode
+	Const wbemCIMTypeSint16    =   2 'Signed 16-bit integer
+	Const wbemCIMTypeSint32    =   3 'Signed 32-bit integer
+	Const wbemCIMTypeReal32    =   4 '32-bit real number
+	Const wbemCIMTypeReal64    =   5 '64-bit real number
+	Const wbemCIMTypeString    =   8 'String
+	Const wbemCIMTypeBoolean   =  11 'Boolean value
+	Const wbemCIMTypeObject    =  13 'CIM object
+	Const wbemCIMTypeSint8     =  16 'Signed 8-bit integer
+	Const wbemCIMTypeUint8     =  17 'Unsigned 8-bit integer
+	Const wbemCIMTypeUint16    =  18 'Unsigned 16-bit integer
+	Const wbemCIMTypeUint32    =  19 'Unsigned 32-bit integer
+	Const wbemCIMTypeSint64    =  20 'Signed 64-bit integer
+	Const wbemCIMTypeUint64    =  21 'Unsigned 64-bit integer
+	Const wbemCIMTypeDatetime  = 101 'Date/time value
+	Const wbemCIMTypeReference = 102 'Reference to a CIM object
+	Const wbemCIMTypeChar16    = 103 '16-bit character
+	strCode = "// WMI query to list all properties and values of the " & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & "// This C# code was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "// http://www.robvanderwoude.com/wmigen.php \n\n" _
+	        & "using System;\n" _
+	        & "using System.Linq;\n" _
+	        & "using System.Management;\n\n" _
+	        & "namespace WMIGen\n" _
+	        & "{\n" _
+	        & "\tpublic class " & gvsClass & "_Query\n" _
+	        & "\t{\n" _
+	        & "\t\tpublic static int Main(string[] args)\n" _
+	        & "\t\t{\n" _
+	        & "\t\t\ttry\n" _
+	        & "\t\t\t{\n" _
+	        & "\t\t\t\tstring computer = string.Empty;\n" _
+	        & "\t\t\t\tif (args.Count() == 1)\n" _
+	        & "\t\t\t\t{\n" _
+	        & "\t\t\t\t\tcomputer = @""\\"" + args[0] + @""\"";\n" _
+	        & "\t\t\t\t}\n\n" _
+	        & "\t\t\t\tManagementObjectSearcher searcher = new ManagementObjectSearcher(computer + @""" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & """, ""SELECT * FROM " & gvsClass & """);\n" _
+	        & "\t\t\t\tManagementObjectCollection colItems = searcher.Get( );\n\n" _
+	        & "\t\t\t\tConsole.WriteLine( ""{0} instance{1}"", colItems.Count, ( colItems.Count == 1 ? String.Empty : ""s"" ) );\n" _
+	        & "\t\t\t\tConsole.WriteLine( );\n\n" _
+	        & "\t\t\t\tforeach ( ManagementObject queryObj in colItems )\n" _
+	        & "\t\t\t\t{\n"
+	For Each objProperty In gvoClass.Properties_
+		If objProperty.IsArray = True Then
+			intCIMType = objProperty.CIMType
+			If intCIMType < 8 Then
+				strCIMType = "UInt16"
+			ElseIf intCIMType > 15 And intCIMType < 100 Then
+				strCIMType = "UInt16"
+			Else
+				strCIMType = "string"
+			End If
+			strCode = strCode _
+			        & "\t\t\t\t\tif (queryObj[""" & objProperty.Name & """] == null)\n" _
+			        & "\t\t\t\t\t{\n" _
+			        & "\t\t\t\t\t\tConsole.WriteLine(""" & CreateLine( objProperty.Name, gviMaxLen ) & " "");\n" _
+			        & "\t\t\t\t\t}\n" _
+			        & "\t\t\t\t\telse\n" _
+			        & "\t\t\t\t\t{\n" _
+			        & "\t\t\t\t\t\t" & strCIMType & "[] arrProperty = (" & strCIMType & "[])(queryObj[""" & objProperty.Name & """]);\n" _
+			        & "\t\t\t\t\t\tConsole.Write(""" & CreateLine( objProperty.Name, gviMaxLen ) & " "");\n" _
+			        & "\t\t\t\t\t\tConsole.WriteLine(string.Join("";"", arrProperty.Select(cap => cap.ToString()).ToArray()));\n" _
+			        & "\t\t\t\t\t}\n"
+		Else
+			strCode = strCode _
+			        & "\t\t\t\t\tConsole.WriteLine(""" & CreateLine( objProperty.Name, gviMaxLen ) & " {0}"", queryObj[""" & objProperty.Name & """]);\n"
+		End If
+	Next
+	strCode = strCode _
+	        & "\t\t\t\t\tConsole.WriteLine();\n" _
+	        & "\t\t\t\t}\n" _
+	        & "\t\t\t\treturn 0;\n" _
+	        & "\t\t\t}\n" _
+	        & "\t\t\tcatch (Exception e)\n" _
+	        & "\t\t\t{\n" _
+	        & "\t\t\t\tConsole.Error.WriteLine(""An error occurred while querying WMI: {0}"", e.Message);\n" _
+	        & "\t\t\t\treturn 1;\n" _
+	        & "\t\t\t}\n" _
+	        & "\t\t}\n" _
+	        & "\t}\n" _
+	        & "}\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowFSharpCode( )
+	Dim objProperty, strCode
+	strCode = "// WMI query to list all properties and values of the " & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & "// This F# code was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "// http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "#if INTERACTIVE\n" _
+	        & "#r ""System""\n" _
+	        & "#r ""System.Management""\n" _
+	        & "#endif\n\n" _
+	        & "open System\n" _
+	        & "open System.Management\n\n" _
+	        & "let scope = ManagementScope(@""\\localhost\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & """)\n" _
+	        & "let query = ObjectQuery(""SELECT * FROM " & gvsClass & """)\n" _
+	        & "let searcher = new ManagementObjectSearcher(query)\n" _
+	        & "let colItems = searcher.Get( )\n\n" _
+	        & "printfn ""%A instance(s)"" (colItems.Count)\n" _
+	        & "printfn """"\n\n" _
+	        & "for obj in colItems do\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & "    printfn """ & CreateLine( objProperty.Name, gviMaxLen ) & " %A"" (obj.GetPropertyValue(""" & objProperty.Name & """))\n"
+	Next
+	strCode = strCode & "    printfn """""
+	strCode = Replace( strCode, "\n", vbCrLf )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowJavaCode( )
+	Dim objProperty, strCode
+	strCode = "/**" & vbCrLf _
+	        & " * WMI query to list all properties and values of the \\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class." & vbCrLf _
+	        & " * Based on a JACOB sample by 'NickDMax' on DreamInCode.net:" & vbCrLf _
+	        & " * http://www.dreamincode.net/code/snippet3297.htm"  & vbCrLf _
+	        & " * This Java code requires JACOB (JAva COm Bridge):" & vbCrLf _
+	        & " * http://sourceforge.net/projects/jacob-project/"   & vbCrLf _
+	        & " * This Java code was generated using the WMI Code Generator, Version " & WMIGen.Version & vbCrLf _
+	        & " * http://www.robvanderwoude.com/wmigen.php" & vbCrLf _
+	        & " */" & vbCrLf & vbCrLf _
+	        & "import com.jacob.activeX.ActiveXComponent;\n" _
+	        & "import com.jacob.com.Dispatch;\n" _
+	        & "import com.jacob.com.EnumVariant;\n" _
+	        & "import com.jacob.com.Variant;\n" & vbCrLf _
+	        & "public class WMIGen_" & gvsClass & " {\n" _
+	        & "\t/**" & vbCrLf _
+	        & "\t * @param args" & vbCrLf _
+	        & "\t */" & vbCrLf _
+	        & "\tpublic static void main(String[] args) {\n" _
+	        & "\t\tString host = ""localhost"";\n" _
+	        & "\t\tif (args.length > 0) {\n" _
+	        & "\t\t\thost = args[0];\n" _
+	        & "\t\t}\n" _
+	        & "\t\tString connectStr = String.format(""winmgmts:\\\\%s\\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\\" ) & """, host);\n" _
+	        & "\t\tString query = ""SELECT * FROM " & gvsClass & """;\n" _
+	        & "\t\tString property = """";\n" _
+	        & "\t\tActiveXComponent axWMI = new ActiveXComponent(connectStr);\n" _
+	        & "\t\tVariant vCollection = axWMI.invoke(""ExecQuery"", new Variant(query));\n" _
+	        & "\t\tEnumVariant enumVariant = new EnumVariant(vCollection.toDispatch());\n" _
+	        & "\t\tDispatch item = null;\n" _
+	        & "\t\twhile (enumVariant.hasMoreElements()) {\n" _
+	        & "\t\t\titem = enumVariant.nextElement().toDispatch();\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode _
+		        & "\t\t\tproperty = Dispatch.call(item,""" & objProperty.Name & """).toString();\n" _
+		        & "\t\t\tSystem.out.printf(""" & CreateLine( objProperty.Name, gviMaxLen ) & " %s\n"",property);\n"
+	Next
+	strCode = strCode _
+	        & "\t\t\tSystem.out.printf(""\n"");\n" _
+	        & "\t\t}\n" _
+	        & "\t}\n" _
+	        & "}\n"
+	strCode = Replace( strCode, "\n\n *", vbCrLf & vbCrLf )
+	strCode = Replace( strCode, ";\n", ";" & vbCrLf )
+	strCode = Replace( strCode, "}\n", "}" & vbCrLf )
+	strCode = Replace( strCode, "{\n", "{" & vbCrLf )
+	strCode = Replace( strCode, "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowJScriptCode( )
+	' IsArray and Join() functionality "borrowed" from Scriptomatic 2.0
+	' http://www.microsoft.com/downloads/details.aspx?FamilyID=09dfc342-648b-4119-b7eb-783b0f7d1178&DisplayLang=en
+	Dim objProperty, strCode
+	strCode = "// WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "// This JScript code was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "// http://www.robvanderwoude.com/wmigen.php\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "var wbemFlagReturnImmediately = 0x10;\n" _
+		        & "var wbemFlagForwardOnly       = 0x20;\n\n"
+	End If
+	strCode = strCode _
+	        & "objArgs = WScript.Arguments;\n" _
+	        & "if ( objArgs.length == 1 ) {\n" _
+	        & "\tvar strComputer = objArgs[0];\n" _
+	        & "} else {\n" _
+	        & "\tvar strComputer = ""."";\n" _
+	        & "}\n\n" _
+	        & "var objWMIService = GetObject( ""winmgmts://"" + strComputer + ""/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ );\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "var colItems      = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately | wbemFlagForwardOnly );\n\n"
+	Else
+		strCode = strCode _
+		        & "var colItems      = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """ );\n\n" _
+		        & "if ( colItems.Count == 1 ) {\n" _
+		        & "\tWScript.Echo( ""1 instance:"" );\n" _
+		        & "} else {\n" _
+		        & "\tWScript.Echo( colItems.Count + "" instances:"" );\n" _
+		        & "}\n" _
+		        & "WScript.Echo( );\n\n"
+	End If
+	strCode = strCode _
+	        & "var enumItems = new Enumerator( colItems );\n" _
+	        & "for ( ; !enumItems.atEnd(); enumItems.moveNext( ) ) {\n" _
+	        & "\tvar objItem = enumItems.item( );\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode _
+			        & "\ttry {\n" _
+			        & "\t\tif ( objItem." & objProperty.Name & " == null ) {\n" _
+			        & "\t\t\tWScript.Echo( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" );\n" _
+			        & "\t\t} else {\n"
+		If objProperty.IsArray = True Then
+			strCode = strCode & "\t\t\tWScript.Echo( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" + ( objItem." & objProperty.Name & ".toArray( ) ).join( "","" ) );\n"
+		Else
+			strCode = strCode & "\t\t\tWScript.Echo( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" + objItem." & objProperty.Name & " );\n"
+		End If
+		strCode = strCode _
+		        & "\t\t}\n" _
+		        & "\t}\n" _
+		        & "\tcatch( e ) {\n" _
+		        & "\t\tWScript.Echo( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" );\n" _
+		        & "\t}\n"
+	Next
+	strCode = strCode _
+	        & "\tWScript.Echo( """" );\n" _
+	        & "}\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowKiXtartCode( )
+	Dim objProperty, strCode
+	strCode = "; WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "; This KiXtart script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "; http://www.robvanderwoude.com/wmigen.php\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "$wbemFlagReturnImmediately = &10\n" _
+		        & "$wbemFlagForwardOnly       = &20\n\n"
+	End If
+	strCode = strCode _
+	        & "Break On\n\n" _
+	        & "If $computer = """"\n" _
+	        & "\t$arrKixVer = Split( @Kix, ""."" )\n" _
+	        & "\t$KiXVer    = 100 * $arrKixVer[0] + $arrKixVer[1]\n" _
+	        & "\t$computer  = "".""\n" _
+	        & "\tIf $KixVer > 451\n" _
+	        & "\t\t$arrGetCommandLine = GetCommandLine(1)\n" _
+	        & "\t\t$LastArg = $arrGetCommandLine[ UBound( $arrGetCommandLine ) ]\n" _
+	        & "\t\tIf $LastArg <> ""@ScriptDir\@ScriptName""\n" _
+	        & "\t\t\t$computer = $LastArg\n" _
+	        & "\t\tEndIf\n" _
+	        & "\tEndIf\n" _
+	        & "EndIf\n\n" _
+	        & "$objWMIService = GetObject( ""winmgmts://"" + $computer + ""/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ )\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode & "$colItems      = $objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately + wbemFlagForwardOnly )\n\n"
+	Else
+		strCode = strCode _
+		        & "$colItems      = $objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """ )\n\n" _
+		        & "If $colItems.Count = 1\n" _
+		        & "\t? ""1 instance:"" ?\n" _
+		        & "Else\n" _
+		        & "\t? """" + $colItems.Count + "" instances:"" ?\n" _
+		        & "EndIf\n\n"
+	End If
+	strCode = strCode & "For Each $objItem In $colItems\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & "\t? """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" + "
+		If objProperty.IsArray = True Then strCode = strCode & "Join( "
+		strCode = strCode & "$objItem." & objProperty.Name
+		If objProperty.IsArray = True Then strCode = strCode & ", "","" )"
+		strCode = strCode & "\n"
+	Next
+	strCode = strCode _
+	        & "\t?\n" _
+	        & "Next\n\n" _
+	        & "Quit\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowLuaCode( )
+	Dim objProperty, strCode
+	strCode = "-- WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "-- This Lua code requires Lua for Windows:\n" _
+	        & "-- https://code.google.com/p/luaforwindows/\n" _
+	        & "-- This Lua script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "-- http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "require( ""luacom"" )\n\n" _
+	        & "luacom.config.abort_on_API_error = true\n" _
+	        & "luacom.config.abort_on_error = false\n\n" _
+	        & "if arg[1] == nil then\n" _
+	        & "\tcomputer = "".""\n" _
+	        & "else\n" _
+	        & "\tcomputer = arg[1]\n" _
+	        & "end\n\n" _
+	        & "function display( objval )\n" _
+	        & "\tif objval == nil then\n" _
+	        & "\t\treturn """"\n" _
+	        & "\tend\n" _
+	        & "\tif type( objval ) == ""table"" then\n" _
+	        & "\t\treturn table.concat( objval, "";"" )\n" _
+	        & "\tend\n" _
+	        & "\treturn tostring( objval )\n" _
+	        & "end\n\n" _
+	        & "objWMIService = luacom.GetObject( ""winmgmts:{impersonationLevel=Impersonate}!//""..computer..""/root/cimv2"" )\n" _
+	        & "objSWbemRefresher = luacom.CreateObject( ""WbemScripting.SWbemRefresher"" )\n" _
+	        & "objSWbemRefresher.AutoReconnect = 1\n" _
+	        & "refobj" & gvsClass & " = objSWbemRefresher:AddEnum( objWMIService, """ & gvsClass & """ )\n" _
+	        & "objSWbemRefresher:Refresh( )\n" _
+	        & "obj" & gvsClass & "Enum = luacom.GetEnumerator( refobj" & gvsClass & ".ObjectSet )\n\n" _
+	        & "objSWbemRefresher:Refresh( )\n" _
+	        & "obj" & gvsClass & "Enum:Reset( )\n" _
+	        & "test = refobj" & gvsClass & ".ObjectSet.Count\n" _
+	        & "if test == 1 then\n" _
+	        & "\tprint( ""1 instance:"" )\n" _
+	        & "else\n" _
+	        & "\tprint( test.."" instances:"" )\n" _
+	        & "end\n" _
+	        & "print( )\n\n" _
+	        & "objSWbemRefresher:Refresh( )\n" _
+	        & "obj" & gvsClass & "Enum:Reset( )\n" _
+	        & "item = obj" & gvsClass & "Enum:Next( )\n" _
+	        & "while item do\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & vbTab & "print( """ & CreateLine( objProperty.Name, gviMaxLen ) & " ""..display(item:" & objProperty.Name & "( ) ) )\n"
+	Next
+	strCode = strCode _
+	        & "\tprint( )\n" _
+	        & "\titem = obj" & gvsClass & "Enum:Next( )\n" _
+	        & "end\n" _
+	        & "item = nil\n" _
+	        & "collectgarbage( )\n\n" _
+	        & "objWMIService = nil\n" _
+	        & "objSWbemRefresher = nil\n" _
+	        & "refobj" & gvsClass & " = nil\n" _
+	        & "obj" & gvsClass & "Enum = nil\n" _
+	        & "collectgarbage( )\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowObjectRexxCode( )
+	' Based on the Rexx script samples found at the Script Repository:
+	' http://www.microsoft.com/technet/scriptcenter/scripts/rexx/default.mspx
+	' Tested with Open Object Rexx: http://www.oorexx.org/
+	Dim objProperty, strCode
+	strCode = "/*\n" _
+	        & "WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "This Open Object Rexx script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "http://www.robvanderwoude.com/wmigen.php\n" _
+	        & "*/\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "wbemFlagReturnImmediately = 16\n" _
+		        & "wbemFlagForwardOnly       = 32\n\n"
+	End If
+	strCode = strCode _
+	        & "Parse Upper Arg strComputer .\n" _
+	        & "If strComputer = """" Then strComputer = "".""\n\n" _
+	        & "objWMIService = .OLEObject~GetObject( ""winmgmts://""||strComputer||""/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ )\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode & "colItems = objWMIService~ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately + wbemFlagForwardOnly );\n\n"
+	Else
+		strCode = strCode _
+		        & "colItems = objWMIService~ExecQuery( ""SELECT * FROM " & gvsClass & """ )\n\n" _
+		        & "If colItems~Count = 1 Then Say ""1 instance:""; Else Say colItems~Count||"" instances:""\n" _
+		        & "Say\n\n"
+	End If
+	strCode = strCode & "Do objItem Over colItems\n"
+	For Each objProperty In gvoClass.Properties_
+		If objProperty.IsArray = True Then
+			strCode = strCode _
+			        & "\tstr" & objProperty.Name & " = """"\n" _
+		            & "\tIf objItem~" & objProperty.Name & " <> .NIL Then\n" _
+			        & "\t\tDo i = 1 To Length(objItem~" & objProperty.Name & ")\n" _
+			        & "\t\t\tIf objItem~" & objProperty.Name & "[i] <> .NIL Then str" & objProperty.Name & " = str" & objProperty.Name & "||"",""||objItem~" & objProperty.Name & "[i]\n" _
+			        & "\t\tEnd\n" _
+			        & "\tIf Length( str" & objProperty.Name & ") > 1 Then str" & objProperty.Name & " = str" & objProperty.Name & "~substr(2,)\n" _
+			        & "\tSay """ & CreateLine( objProperty.Name, gviMaxLen ) & " ""||str" & objProperty.Name & "\n"
+		Else
+			strCode = strCode _
+		            & "\tIf objItem~" & objProperty.Name & " = .NIL Then str" & objProperty.Name & " = """"; Else str" & objProperty.Name & " = objItem~" & objProperty.Name & "\n" _
+			        & "\tSay """ & CreateLine( objProperty.Name, gviMaxLen ) & " ""||str" & objProperty.Name & "\n"
+		End If
+	Next
+	strCode = strCode _
+	        & "\tSay\n" _
+	        & "End\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowPascalCode( )
+	' Based on sample WMI code from 'The Road To Delphi':
+	' http://theroadtodelphi.wordpress.com/2010/12/01/accesing-the-wmi-from-pascal-code-delphi-oxygene-freepascal/#Lazarus
+	' This sample code would crash on properties of Array type, so the generated code skips arrays and returns a string "[Array]" instead
+	' Code adapted for and tested in Lazarus IDE
+	' http://www.lazarus.freepascal.org/
+	Dim objProperty, strCode
+	strCode = "// WMI query to list all properties and values of the \\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & "// This Object Pascal code (for lazarus IDE) was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "// http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "// Based on sample WMI code from 'The Road To Delphi':\n" _
+	        & "// http://theroadtodelphi.wordpress.com/2010/12/01/accesing-the-wmi-from-pascal-code-delphi-oxygene-freepascal/#Lazarus\n" _
+	        & "// Code adapted for and tested in Lazarus IDE:\n" _
+	        & "// http://www.lazarus.freepascal.org/\n\n" _
+	        & "program WMIGen_" & gvsClass & ";\n\n" _
+	        & "\t{$mode objfpc}\n\n" _
+	        & "\tuses SysUtils, Variants, ComObj, ActiveX, Windows;\n\n" _
+	        & "\tfunction VarStrNull( const V : OleVariant ) : string; //avoid problems with null strings\n" _
+	        & "\t\tbegin\n" _
+	        & "\t\t\tResult := '';\n" _
+	        & "\t\t\tif not VarIsNull( V ) then\n" _
+	        & "\t\t\t\tbegin\n" _
+	        & "\t\t\t\t\tif VarIsArray( V ) then\n" _
+	        & "\t\t\t\t\t\tResult := '[Array]'\n" _
+	        & "\t\t\t\t\telse\n" _
+	        & "\t\t\t\t\t\tResult := VarToStr( V );\n" _
+	        & "\t\t\t\tend;\n" _
+	        & "\t\tend;\n\n" _
+	        & "\tfunction GetWMIObject( const objectName : string ) : IDispatch;\n" _
+	        & "\t\tvar\n" _
+	        & "\t\t\tchEaten : PULONG;\n" _
+	        & "\t\t\tBindCtx : IBindCtx;\n" _
+	        & "\t\t\tMoniker : IMoniker;\n\n" _
+	        & "\t\tbegin\n" _
+	        & "\t\t\tOleCheck( CreateBindCtx( 0, bindCtx ) );\n" _
+	        & "\t\t\tOleCheck( MkParseDisplayName( BindCtx, StringToOleStr( objectName ), chEaten, Moniker ) );\n" _
+	        & "\t\t\tOleCheck( Moniker.BindToObject( BindCtx, nil, IDispatch, Result ) );\n" _
+	        & "\t\tend;\n\n" _
+	        & "\tprocedure WMIGen_" & gvsClass & "( sComputer : string );\n" _
+	        & "\t\tvar\n" _
+	        & "\t\t\tobjWMIService : OleVariant;\n" _
+	        & "\t\t\tcolItems      : OleVariant;\n" _
+	        & "\t\t\tcolItem       : Variant;\n" _
+	        & "\t\t\toEnum         : IEnumvariant;\n" _
+	        & "\t\t\tsTemp         : string;\n\n" _
+	        & "\t\tbegin;\n" _
+	        & "\t\t\tobjWMIService := GetWMIObject( Format( 'winmgmts://%s/" & gvaSettingsStr.Item( "NAMESPACE" ) & "', [sComputer] ) );\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "\t\t\tcolItems      := objWMIService.ExecQuery( 'SELECT * FROM " & gvsClass & "', 'WQL', 48 );\n" _
+		        & "\t\t\toEnum         := IUnknown( colItems._NewEnum ) as IEnumVariant;\n\n"
+	Else
+		strCode = strCode _
+		        & "\t\t\tcolItems      := objWMIService.ExecQuery( 'SELECT * FROM " & gvsClass & "', 'WQL', 0 );\n" _
+		        & "\t\t\toEnum         := IUnknown( colItems._NewEnum ) as IEnumVariant;\n\n" _
+		        & "\t\t\tif colItems.Count = 1 then\n" _
+		        & "\t\t\t\tWriteln( '1 instance' )\n" _
+		        & "\t\t\telse\n" _
+		        & "\t\t\t\tbegin\n" _
+		        & "\t\t\t\t\tsTemp := VarStrNull( colItems.Count );\n" _
+		        & "\t\t\t\t\tWriteln( Format( '%s instances', [sTemp] ) );\n" _
+		        & "\t\t\t\tend;\n" _
+		        & "\t\t\tWriteln( );\n\n"
+	End If
+	strCode = strCode _
+	        & "\t\t\twhile oEnum.Next( 1, colItem, nil ) = 0 do\n" _
+	        & "\t\t\t\tbegin\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode _
+		        & "\t\t\t\t\tsTemp := VarStrNull( colItem." & objProperty.Name & " );\n" _
+		        & "\t\t\t\t\tWriteln( Format( '" & CreateLine( objProperty.Name, gviMaxLen ) & " %s', [sTemp] ) );\n"
+	Next
+	strCode = strCode _
+	        & "\t\t\t\t\tWriteLn( );\n" _
+	        & "\t\t\t\tend;\n" _
+	        & "\t\tend;\n\n" _
+	        & "\tvar\n" _
+	        & "\t\tsComputer : string;\n\n" _
+	        & "\tbegin\n" _
+	        & "\t\ttry\n" _
+	        & "\t\t\tbegin\n" _
+	        & "\t\t\t\t// First and only optional command line argument is remote computer name\n" _
+	        & "\t\t\t\tif ParamCount = 1 then\n" _
+	        & "\t\t\t\t\tsComputer := ParamStr( 1 )\n" _
+	        & "\t\t\t\telse\n" _
+	        & "\t\t\t\t\tsComputer := 'localhost';\n" _
+	        & "\t\t\t\tWMIGen_" & gvsClass & "( sComputer );\n" _
+	        & "\t\t\tend;\n" _
+	        & "\t\texcept\n" _
+	        & "\t\t\ton E : Exception do Writeln( E.Classname, ': ', E.Message );\n" _
+	        & "\tend;\n" _
+	        & "end.\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowPerlCode( )
+	Dim objProperty, strCode
+	strCode = "#! perl\r\r" _
+	        & "# WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\r" _
+	        & "# This Perl script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\r" _
+	        & "# http://www.robvanderwoude.com/wmigen.php\r\r" _
+	        & "use Win32::OLE( 'in' );\r\r"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "use constant wbemFlagReturnImmediately => 0x10;\r" _
+		        & "use constant wbemFlagForwardOnly       => 0x20;\r\r"
+	End If
+	strCode = strCode _
+	        & "if ( $ARGV[0] ) {\r" _
+	        & "\t$computer = $ARGV[0];\r" _
+	        & "} else {\r" _
+	        & "\t$computer = ""."";\r" _
+	        & "}\r\r" _
+	        & "my $objWMIService = Win32::OLE->GetObject( ""winmgmts://$computer/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ ) or die ""WMI connection failed.\n"";\r"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode & "my $colItems = $objWMIService->ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately | wbemFlagForwardOnly );\r\r"
+	Else
+		strCode = strCode _
+		        & "my $colItems = $objWMIService->ExecQuery( ""SELECT * FROM " & gvsClass & """ );\r" _
+		        & "if ( $colItems->Count == 1 ) {\r" _
+		        & "\tprint ""1 instance:\n"";\r" _
+		        & "} else {\r" _
+		        & "\tprintf( ""%s instances:\n\n"", $colItems->Count );\r" _
+		        & "}\r\r"
+	End If
+	strCode = strCode & "foreach my $objItem ( in $colItems ) {\r"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & "\tprint """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" . "
+		If objProperty.IsArray = True Then
+			strCode = strCode & "join( "","", ( in $objItem->{ " & objProperty.Name & " } ) )"
+		Else
+			strCode = strCode & "$objItem->{ " & objProperty.Name & " }"
+		End If
+		strCode = strCode & " . ""\n"";\r"
+	Next
+	strCode = strCode _
+	        & "\tprint ""\n"";\r" _
+	        & "}\r"
+	strCode = Replace( Replace( strCode, "\r", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowPowerShellCode( )
+	Dim objProperty, strCode
+	strCode = "# WMI query to list all properties and values of the \\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & "# This PowerShell script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "# http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "param( [string]$strComputer = ""."" )\n\n" _
+	        & "$colItems = get-wmiobject -class """ & gvsClass & """ -namespace """ & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & """ -computername $strComputer\n\n" _
+	        & "$instances = ($colItems | measure-object).Count\n" _
+	        & "if ($instances -eq 1) {\n" _
+	        & "\twrite-host ""1 instance:""\n" _
+	        & "} else {\n" _
+	        & "\twrite-host ""$instances instances:""\n" _
+	        & "}\n" _
+	        & "write-host\n\n" _
+	        & "foreach ($objItem in $colItems) {\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & "\twrite-host """ & CreateLine( objProperty.Name, gviMaxLen ) & """ $objItem." & objProperty.Name & "\n"
+	Next
+	strCode = strCode _
+	        & "\twrite-host\n" _
+	        & "}\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowPythonCode( )
+	Dim objProperty, strCode
+	strCode = "#! python\n\n" _
+	        & "# WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "# To use WMI in Python, install the Python for Windows extensions:\n" _
+	        & "# http://sourceforge.net/projects/pywin32/files/pywin32/\n" _
+	        & "# This Python script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "# http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "import sys\n" _
+	        & "import win32com.client\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "wbemFlagReturnImmediately = 0x10\n" _
+		        & "wbemFlagForwardOnly       = 0x20\n\n"
+	End If
+	strCode = strCode _
+	        & "try:\n" _
+	        & "\tstrComputer = sys.argv[1]\n" _
+	        & "except IndexError:\n" _
+	        & "\tstrComputer = "".""\n\n" _
+	        & "objWMIService = win32com.client.Dispatch( ""WbemScripting.SWbemLocator"" )\n" _
+	        & "objSWbemServices = objWMIService.ConnectServer( strComputer, """ & gvaSettingsStr.Item( "NAMESPACE" ) & """ )\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+	        & "colItems = objSWbemServices.ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately + wbemFlagForwardOnly )\n\n"
+	Else
+		strCode = strCode _
+	        & "colItems = objSWbemServices.ExecQuery( ""SELECT * FROM " & gvsClass & """ )\n\n" _
+	        & "if colItems.Count == 1:\n" _
+	        & "\tprint( ""1 instance:"" )\n" _
+	        & "else:\n" _
+	        & "\tprint( str( colItems.Count ) + "" instances:"" )\n" _
+	        & "print\n\n"
+	End If
+	strCode = strCode & "for objItem in colItems:\n"
+	For Each objProperty In gvoClass.Properties_
+		If objProperty.IsArray = True Then
+			strCode = strCode _
+			        & "\tstrList = "" ""\n" _
+			        & "\ttry:\n" _
+			        & "\t\tfor objElem in objItem." & objProperty.Name & " :\n" _
+			        & "\t\t\tstrList = strList + str( objElem ) + "",""\n" _
+			        & "\texcept:\n" _
+			        & "\t\tstrList = strList + 'null'\n" _
+			        & "\tprint( """ & CreateLine( objProperty.Name, gviMaxLen ) & """ + strList )\n"
+		Else
+			strCode = strCode _
+			        & "\tif objItem." & objProperty.Name & " == None:\n" _
+			        & "\t\tprint( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" )\n" _
+			        & "\telse:\n" _
+			        & "\t\tprint( """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" + str( objItem." & objProperty.Name & " ) )\n"
+		End If
+	Next
+	strCode = strCode & "\tprint\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowRubyCode( )
+	Dim objProperty, strCode
+	strCode = "# WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "# This Ruby script was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "# http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "require 'win32ole'\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "wbemFlagReturnImmediately = 0x10\n" _
+		        & "wbemFlagForwardOnly       = 0x20\n\n"
+	End If
+	strCode = strCode _
+	        & "if ARGV[0]\n" _
+	        & "\tcomputer = ARGV[0]\n" _
+	        & "else\n" _
+	        & "\tcomputer = "".""\n" _
+	        & "end\n\n" _
+	        & "objWMIService = WIN32OLE.connect( ""winmgmts://#{computer}/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ )\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode & "colItems = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately + wbemFlagForwardOnly )\n\n"
+	Else
+		strCode = strCode _
+	        & "colItems = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """ )\n\n" _
+	        & "if colItems.Count == 1\n\n" _
+	        & "\tputs ""1 instance:""\n" _
+	        & "else\n" _
+	        & "\tputs ""#{colItems.Count} instances:""\n" _
+	        & "end\n" _
+	        & "puts\n\n"
+	End If
+	strCode = strCode & "for objItem in colItems do\n"
+	For Each objProperty In gvoClass.Properties_
+		strCode = strCode & "\tputs """ & CreateLine( objProperty.Name, gviMaxLen ) & " #{objItem." & objProperty.Name & "}""\n"
+	Next
+	strCode = strCode _
+	        & "\tputs\n" _
+	        & "end\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowVBDotNETCode( )
+	Dim intCIMType, objProperty, strArrayPr, strCIMType, strCode
+	Const wbemCIMTypeSint16    =   2 'Signed 16-bit integer
+	Const wbemCIMTypeSint32    =   3 'Signed 32-bit integer
+	Const wbemCIMTypeReal32    =   4 '32-bit real number
+	Const wbemCIMTypeReal64    =   5 '64-bit real number
+	Const wbemCIMTypeString    =   8 'String
+	Const wbemCIMTypeBoolean   =  11 'Boolean value
+	Const wbemCIMTypeObject    =  13 'CIM object
+	Const wbemCIMTypeSint8     =  16 'Signed 8-bit integer
+	Const wbemCIMTypeUint8     =  17 'Unsigned 8-bit integer
+	Const wbemCIMTypeUint16    =  18 'Unsigned 16-bit integer
+	Const wbemCIMTypeUint32    =  19 'Unsigned 32-bit integer
+	Const wbemCIMTypeSint64    =  20 'Signed 64-bit integer
+	Const wbemCIMTypeUint64    =  21 'Unsigned 64-bit integer
+	Const wbemCIMTypeDatetime  = 101 'Date/time value
+	Const wbemCIMTypeReference = 102 'Reference to a CIM object
+	Const wbemCIMTypeChar16    = 103 '16-bit character
+	strCode = "' WMI query to list all properties and values of the \\" & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & ":" & gvsClass & " class.\n" _
+	        & "' This VB .NET code was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "' http://www.robvanderwoude.com/wmigen.php\n\n" _
+	        & "Imports System\n" _
+	        & "Imports System.Management\n\n" _
+	        & "Namespace WMIGen\n" _
+	        & "\tModule " & gvsClass & "_Query\n" _
+	        & "\t\tSub Main(ByVal ParamArray args() As String)\n" _
+	        & "\t\t\tDim computer As String = String.Empty\n" _
+	        & "\t\t\tTry\n" _
+	        & "\t\t\t\tIf args.Length > 0 Then\n" _
+	        & "\t\t\t\t\tcomputer = ""\\"" & args(0) & ""\""\n" _
+	        & "\t\t\t\tEnd If\n\n" _
+	        & "\t\t\t\tDim searcher As New ManagementObjectSearcher(computer & """ & Replace( gvaSettingsStr.Item( "NAMESPACE" ), "/", "\" ) & """, ""SELECT * FROM " & gvsClass & """)\n" _
+            & "\t\t\t\tDim colItems = searcher.Get()\n" _
+	        & "\t\t\t\tDim arrPropertyInt() As UInt16\n" _
+	        & "\t\t\t\tDim arrPropertyStr() As String\n\n" _
+	        & "\t\t\t\tIf colItems.Count = 1 Then\n" _
+	        & "\t\t\t\t\tConsole.WriteLine(""1 instance:"")\n" _
+	        & "\t\t\t\tElse\n" _
+	        & "\t\t\t\t\tConsole.WriteLine(""{0} instances:"", colItems.Count)\n" _
+	        & "\t\t\t\tEnd If\n" _
+	        & "\t\t\t\tConsole.WriteLine()\n\n" _
+	        & "\t\t\t\tFor Each queryObj As ManagementObject In colItems\n"
+	For Each objProperty In gvoClass.Properties_
+		If objProperty.IsArray = True Then
+			intCIMType = objProperty.CIMType
+			strCIMType = "String"
+			strArrayPr = "arrPropertyStr"
+			If intCIMType < 8 Then strCIMType = "UInt16"
+			If intCIMType > 15 And intCIMType < 100 Then strCIMType = "UInt16"
+			If strCIMType = "UInt16" Then strArrayPr = "arrPropertyInt"
+			strCode = strCode _
+			        & "\t\t\t\t\tIf queryObj(""" & objProperty.Name & """) Is Nothing Then\n" _
+			        & "\t\t\t\t\t\tConsole.WriteLine(""" & CreateLine( objProperty.Name, gviMaxLen ) & " {0}"", queryObj(""" & objProperty.Name & """))\n" _
+			        & "\t\t\t\t\tElse\n" _
+			        & "\t\t\t\t\t\t" & strArrayPr & " = queryObj(""" & objProperty.Name & """)\n"
+			If strCIMType = "UInt16" Then
+				strCode = strCode _
+				        & "\t\t\t\t\t\tReDim arrPropertyStr(UBound(arrPropertyInt))\n" _
+				        & "\t\t\t\t\t\tFor i = 0 To UBound(arrPropertyInt)\n" _
+                        & "\t\t\t\t\t\t\tarrPropertyStr(i) = CStr(arrPropertyInt(i))\n" _
+                        & "\t\t\t\t\t\tNext\n"
+			End If
+			strCode = strCode _
+			        & "\t\t\t\t\t\tConsole.WriteLine(""" & CreateLine( objProperty.Name, gviMaxLen ) & " {0}"", Join(arrPropertyStr, "";""))\n" _
+			        & "\t\t\t\t\tEnd If\n"
+		Else
+			strCode = strCode & "\t\t\t\t\tConsole.WriteLine(""" & CreateLine( objProperty.Name, gviMaxLen ) & " {0}"", queryObj(""" & objProperty.Name & """))\n"
+		End If
+	Next
+	strCode = strCode _
+	        & "\t\t\t\t\tConsole.WriteLine()\n" _
+	        & "\t\t\t\tNext\n" _
+	        & "\t\t\t\tEnvironment.Exit(0)\n" _
+	        & "\t\t\tCatch err As ManagementException\n" _
+	        & "\t\t\t\tConsole.Error.WriteLine(""An error occurred while querying WMI: "" & err.Message)\n" _
+	        & "\t\t\t\tEnvironment.Exit(1)\n" _
+	        & "\t\t\tCatch err As System.Runtime.InteropServices.COMException\n" _
+	        & "\t\t\t\tConsole.Error.Write(""An error occurred"")\n" _
+	        & "\t\t\t\tIf Not String.IsNullOrEmpty(computer) Then\n" _
+	        & "\t\t\t\t\tConsole.Error.Write("" while connecting to computer "" & computer.Replace(""\"", String.Empty))\n" _
+	        & "\t\t\t\tEnd If\n" _
+	        & "\t\t\t\tConsole.Error.WriteLine("": "" & err.Message)\n" _
+	        & "\t\t\t\tEnvironment.Exit(1)\n" _
+	        & "\t\t\tEnd Try\n" _
+	        & "\t\tEnd Sub\n" _
+	        & "\tEnd Module\n" _
+	        & "End Namespace\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub ShowVBScriptCode( )
+	' IsArray an Join() functionality "borrowed" from Scriptomatic 2.0
+	' http://www.microsoft.com/downloads/details.aspx?FamilyID=09dfc342-648b-4119-b7eb-783b0f7d1178&DisplayLang=en
+	Dim objProperty, strCode
+	strCode = "' WMI query to list all properties and values of the " & gvaSettingsStr.Item( "NAMESPACE" ) & ":" & gvsClass & " class.\n" _
+	        & "' This VBScript code was generated using the WMI Code Generator, Version " & WMIGen.Version & "\n" _
+	        & "' http://www.robvanderwoude.com/wmigen.php\n\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode _
+		        & "Const wbemFlagReturnImmediately = &h10\n" _
+		        & "Const wbemFlagForwardOnly       = &h20\n\n"
+	End If
+	strCode = strCode _
+	        & "On Error Resume Next\n" _
+	        & "If WScript.Arguments.UnNamed.Count = 1 Then\n" _
+	        & "\tstrComputer = WScript.Arguments.UnNamed(0)\n" _
+	        & "Else\n" _
+	        & "\tstrComputer = "".""\n" _
+	        & "End If\n\n" _
+	        & "Set objWMIService = GetObject( ""winmgmts://"" & strComputer & ""/" & gvaSettingsStr.Item( "NAMESPACE" ) & """ )\n"
+	If gvaSettingsBool.Item( "LOWRES" ) Then
+		strCode = strCode & "Set colInstances = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """, ""WQL"", wbemFlagReturnImmediately + wbemFlagForwardOnly )\n\n"
+	Else
+		strCode = strCode _
+		        & "Set colInstances = objWMIService.ExecQuery( ""SELECT * FROM " & gvsClass & """ )\n\n" _
+		        & "If colInstances.Count = 1 Then\n" _
+		        & "\tWScript.Echo ""1 instance:""\n" _
+		        & "Else\n" _
+		        & "\tWScript.Echo colInstances.Count & "" instances:""\n" _
+		        & "End If\n" _
+		        & "WScript.Echo\n\n"
+	End if
+	strCode = strCode & "For Each objInstance In colInstances\n"
+	For Each objProperty In gvoClass.Properties_
+		If objProperty.IsArray = True Then
+			strCode = strCode _
+			        & "\tWScript.Echo """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" & Join( objInstance." & objProperty.Name & ", "","" )\n"
+		Else
+			strCode = strCode _
+			        & "\tWScript.Echo """ & CreateLine( objProperty.Name, gviMaxLen ) & " "" & objInstance." & objProperty.Name & "\n"
+		End If
+	Next
+	strCode = strCode _
+	        & "\tWScript.Echo\n" _
+	        & "Next\n"
+	strCode = Replace( Replace( strCode, "\n", vbCrLf ), "\t", vbTab )
+	Code.value = strCode
+	ButtonState
+End Sub
+
+
+Sub Sleep( seconds )
+	Dim wshShell
+	Set wshShell = CreateObject( "Wscript.Shell" )
+	wshShell.Run "PING -n " & seconds & " localhost", 7, True
+	Set wshShell = Nothing
+End Sub
+
+
+Function TextFromHTML( myURL )
+    Dim objHTTP
+    TextFromHTML = ""
+    Set objHTTP = CreateObject( "WinHttp.WinHttpRequest.5.1" )
+    objHTTP.Open "GET", myURL
+    objHTTP.Send
+    ' Check if the result was valid, and if so return the result
+    If objHTTP.Status = 200 Then
+    	TextFromHTML = objHTTP.ResponseText
+    End If
+    Set objHTTP = Nothing
+End Function
+
+
+Function ValidatedWindowSize( myVal )
+	Dim intHeight, intWidth
+	Dim objMatches, objRE
+	Dim strSize, strVal
+	strSize = ""
+	strVal  = Trim( LCase( myVal ) )
+	If Window_Size.value <> "" Then
+		Set objRE = New RegExp
+		objRE.Pattern = "^(\d{3,4})x(\d{3,4})$"
+		If objRE.Test( strVal ) Then
+			Set objMatches = objRE.Execute( strVal )
+			If objMatches.Count = 1 Then
+				If objMatches.Item(0).Submatches.Count = 2 Then
+					intWidth  = CInt( objMatches.Item(0).Submatches(0) )
+					intHeight = CInt( objMatches.Item(0).Submatches(1) )
+					intWidth  = Max( intWidth,  gviMinWidth  )
+					intHeight = Max( intHeight, gviMinHeight )
+					intWidth  = Min( intWidth,  window.screen.width  )
+					intHeight = Min( intHeight, window.screen.height )
+					strSize   = CStr( intWidth ) & "x" & CStr( intHeight )
+				End If
+			End If
+			Set objMatches = Nothing
+		End If
+		Set objRE = Nothing
+	End If
+	ValidatedWindowSize = strSize
+End Function
+
+
+Function ValidateSettings( )
+	Dim blnCheck, blnCopy, blnGen, blnRun, blnSave
+	Dim objFSO, objItem
+	ValidateSettings = True
+	If Not gvaDefaultsStr.Exists( "NAMESPACE" ) Then ConfigReadDefaults
+	blnCopy = gvaSettingsBool.Item( "COPY" )
+	blnGen  = gvaSettingsBool.Item( "GENERATE" )
+	blnRun  = gvaSettingsBool.Item( "RUN" )
+	blnSave = False
+	If gvaSettingsStr.Item( "SAVE" ) <> "" Then
+		Set objFSO = CreateObject( "Scripting.FileSystemObject" )
+		With objFSO
+			If .FolderExists( .GetParentFolderName( .GetAbsolutePathName( gvaSettingsStr.Item( "SAVE" ) ) ) ) Then
+				blnSave = True
+			Else
+				gvaSettingsStr.Item( "SAVE" ) = ""
+				ValidateSettings = False
+			End If
+		End With
+		Set objFSO = Nothing
+	End If
+	If blnRun And blnGen Then
+		ValidateSettings = False
+		Exit Function
+	End If
+	If blnCopy And blnSave Then
+		ValidateSettings = False
+		Exit Function
+	End If
+	If gvaSettingsStr.Item( "NAMESPACE" ) = "" Then
+		gvaSettingsStr.Item( "NAMESPACE" ) = gvaDefaultsStr.Item( "NAMESPACE" )
+	Else
+		blnCheck = False
+		For Each objItem In Namespaces.options
+			If UCase( objItem.value ) = UCase( gvaSettingsStr.Item( "NAMESPACE" ) ) Then
+				gvaSettingsStr.Item( "NAMESPACE" ) = objItem.value
+				blnCheck = True
+			End If
+		Next
+		If Not blnCheck Then 
+			ValidateSettings = False
+			Exit Function
+		End If
+	End If
+	If gvaSettingsStr.Item( "LANGUAGE" ) = "" Then
+		gvaSettingsStr.Item( "LANGUAGE" ) = gvaDefaultsStr.Item( "LANGUAGE" )
+	Else
+		blnCheck = False
+		For Each objItem In CodeLanguage.options
+			If UCase( objItem.value ) = UCase( gvaSettingsStr.Item( "LANGUAGE" ) ) Then
+				gvaSettingsStr.Item( "LANGUAGE" ) = objItem.value
+				blnCheck = True
+			End If
+		Next
+		If Not blnCheck Then 
+			ValidateSettings = False
+			Exit Function
+		End If
+	End If
+	If gvaSettingsStr.Item( "CLASS" ) = "" Then
+		gvaSettingsStr.Item( "CLASS" ) = gvaDefaultsStr.Item( "CLASS" )
+	Else
+		blnCheck = False
+		For Each objItem In WMIClasses.options
+			If UCase( objItem.value ) = UCase( gvaSettingsStr.Item( "CLASS" ) ) Then
+				gvaSettingsStr.Item( "CLASS" ) = objItem.value
+				blnCheck = True
+			End If
+		Next
+		If Not blnCheck Then 
+			ValidateSettings = False
+			Exit Function
+		End If
+	End If
+End Function
+
+
+Function Which( myFile )
+	Dim arrPATH, i, objFSO, strFound, strFullPath, strPATH, strTestPath, wshShell
+	Which = Null
+	Set WshShell = CreateObject( "WScript.Shell" )
+	Set objFSO   = CreateObject( "Scripting.FileSystemObject" )
+	strPATH = wshShell.CurrentDirectory & ";" & wshShell.ExpandEnvironmentStrings( "%PATH%" )
+	arrPath = Split( strPATH, ";" )
+	For i = 0 To UBound( arrPath )
+		With objFSO
+			' Skip empty directory values, caused by the PATH variable being terminated with a semicolon
+			If Trim( arrPath(i) ) <> "" Then
+				strTestPath = .BuildPath( arrPath(i), myFile )
+				If .FileExists( strTestPath ) Then
+					strFullPath = .GetAbsolutePathName( strTestPath )
+					strFound    = strFullPath
+				End If
+			End If
+			' Abort loop when the first matching file is found
+			If strFound <> "" Then Exit For
+		End With
+	Next
+	Set objFSO   = Nothing
+	Set WshShell = Nothing
+	Which = strFound
+End Function
+
+
+Sub Window_Onload
+	Dim blnCheck
+	Dim objOption
+	Dim strCheckMsg
+	strCheckMsg = ""
+	If InStr( UCase( WMIGen.CommandLine ), "/BW" ) Then
+		BW.checked = True
+		HandleBWChange
+	End If
+	AppVersion.innerHTML     = WMIGen.Version
+	CopyrightsYear.innerHTML = gviCopyrightsYear
+	document.title           = "WMI Code Generator " & WMIGen.Version
+	HelpTitle.innerHTML      = "Help for WMI Code Generator " & WMIGen.Version
+	CreditsTitle.innerHTML   = "Credits for WMI Code Generator " & WMIGen.Version
+	PathToHTA.innerHTML      = Self.location.pathname
+	gvbSearchFieldHasFocus   = False
+	ButtonState
+	WindowSize
+	CheckWindowSize
+	If Not IsAdmin( True ) Then
+		Self.window.close
+		Exit Sub
+	End If
+	ConfigReadDefaults
+	ConfigSetDefaults
+	ConfigReadFile
+	ConfigReadCommandline
+	If Not gvaSettingsBool.Item( "NOUPD" ) Then setTimeout "CheckUpdate", 5000, "VBScript"
+	ConfigUpdateStatus
+	If ValidateSettings Then
+		If Not gvbInteractive Then
+			If gvbCommandlineValidate Then
+				If gvaSettingsBool.Item( "GENERATE" )  Then ShowCode
+				If gvaSettingsBool.Item( "RUN" )       Then RunCode
+				If gvaSettingsStr.Item( "SAVE" ) <> "" Then SaveCode
+				If gvaSettingsBool.Item( "COPY" )      Then CopyCode
+				Self.window.close
+			End If
+		End If
+	Else
+		strCheckMsg = "Invalid command line arguments"
+		If Not gvbNamespaceValidate Then
+			strCheckMsg = "Invalid Namespace """ & gvaSettingsStr.Item( "NAMESPACE" ) & """" & vbCrLf
+		End If
+		If Not gvbClassValidate Then
+			strCheckMsg = strCheckMsg & "Invalid Class """ & gvaSettingsStr.Item( "CLASS" ) & """" & vbCrLf
+		End If
+		If Not gvbLanguageValidate Then
+			strCheckMsg = strCheckMsg & "Invalid Language """ & gvaSettingsStr.Item( "LANGUAGE" ) & """" & vbCrLf
+		End If
+		MsgBox strCheckMsg, vbOKOnly, "Invalid Arguments"
+		Self.location.reload True
+	End If
+	If InStr( WMIGen.CommandLine, "?" ) Or InStr( UCase( WMIGen.CommandLine ), "/HELP" ) Then ShowHelp
+End Sub
+
+
+Sub Window_OnUnload
+	On Error Resume Next
+	Set gvaDefaultsBool = Nothing
+	Set gvaDefaultsStr  = Nothing
+	Set gvaSettingsBool = Nothing
+	Set gvaSettingsStr  = Nothing
+	set gvoClass        = Nothing
+	Set gvoProperty     = Nothing
+	set gvoWMIService   = Nothing
+	On Error Goto 0
+End Sub
+
+
+Sub WindowSize( )
+	Dim intHeight, intWidth, posVertical, posHorizontal, posX
+	If gvaSettingsStr.Item( "SIZE" ) = "" Then
+		intHeight = window.screen.height
+		intWidth  = window.screen.width
+	Else
+		posX = InStr( LCase( gvaSettingsStr.Item( "SIZE" ) ), "x" )
+		If posX > 0 Then
+			intWidth  = Int( Left( gvaSettingsStr.Item( "SIZE" ), posX - 1 ) )
+			intHeight = Int( Mid(  gvaSettingsStr.Item( "SIZE" ), posX + 1 ) )
+		End If
+	End If
+	If IsNumeric( intHeight ) And IsNumeric( intWidth ) Then
+		intHeight = Min( Max( intHeight, gviMinHeight ), window.screen.height )
+		intWidth  = Min( Max( intWidth,  gviMinWidth  ), window.screen.width  )
+		posHorizontal = Max( 0, Int( ( window.screen.width  - intWidth  ) / 2 ) )
+		posVertical   = Max( 0, Int( ( window.screen.height - intHeight ) / 2 ) )
+		If gvaSettingsStr.Item( "SIZE" ) <> "" And gvaSettingsStr.Item( "SIZE" ) <> CStr( Self.screen.width ) & "x" & CStr( Self.screen.height ) Then
+			window.resizeTo intWidth, intHeight
+			window.moveTo posHorizontal, posVertical
+		End If
+	End If
+	If gvaSettingsStr.Item( "SIZE" ) = "" Then
+		Window_Size.value = "maximize"
+	Else
+		Window_Size.value = gvaSettingsStr.Item( "SIZE" )
+	End If
+	CheckWindowSize
+End Sub
+</script>
+
+<body onresize="CheckWindowSize()" onhelp="ShowHelp()" onkeyup="CheckEscape()">
+
+<div class="Center">
+
+<div id="Main">
+
+<table cellspacing="10">
+<tr class="Center">
+    <td class="ButtonRow" colspan="2"><table style="width: 100%;">
+        <tr class="Left Middle">
+            <th style="width: 20%;" title="Select a WMI class from this drop-down list, then select a scripting language and press the 'Generate Code' button to show the code for the selected WMI query and the selected scripting language in the lower text area" class="Left">Select a WMI Class:</th>
+			<th class="Spacer">&nbsp;</th>
+			<th class="Right" style="width: 20%;"><input type="text" id="SearchField" value="Search for a WMI class" title="Search the list of WMI classes for the text entered in this field" onfocus="SearchFocus" onblur="SearchBlur" onkeyup="EnableSearchButton" /></th>
+			<th class="Spacer">&nbsp;</th>
+			<th class="Left" style="width: 20%;"><input type="button" class="ButtonNarrow" id="ButtonSearch" onclick="Search" value="Search" disabled="disabled" title="Search the list of WMI classes" /></th>
+			<th class="Spacer">&nbsp;</th>
+            <th class="Right" style="width: 20%;">Namespace:</th>
+			<th class="Spacer">&nbsp;</th>
+            <th style="width: 20%;"><select id="Namespaces" title="This list shows the available WMI namespaces" size="1" style="width: 240px;" onchange="HandleNamespaceChange" ></select></th>
+        </tr>
+        </table></td>
+</tr>
+<tr class="Center">
+    <td colspan="2" title="Select a WMI class from this drop-down list, then select a scripting language and press the 'Generate Code' button to show the code for the selected WMI query and the selected scripting language in the lower text area"><select onchange="HandleClassChange" name="WMIClasses" id="WMIClasses" size="6" style="width: 100%"></select></th>
+</tr>
+<tr class="ButtonRow Center">
+    <th title="This list shows the available properties for the selected WMI class" class="Left">Properties:</th>
+    <th title="This list shows the available methods for the selected WMI class"    class="Left">Methods:</th>
+</tr>
+<tr class="Center">
+    <td style="width: 50%;"><select id="Properties" title="This list shows the available properties for the selected WMI class" size="6" style="width: 100%"></select></td>
+    <td style="width: 50%;"><select id="Methods"    title="This list shows the available methods for the selected WMI class"    size="6" style="width: 100%"></select></td>
+</tr>
+<tr class="ButtonRow Center">
+    <th id="CodeLabel" title="After pressing the 'Generate Code' button, the generated code to display the available properties and their values for the selected WMI class will be shown here" class="Left">Code:</th>
+    <th class="Right"><input id="MSDNHelpButton" onclick="GetMSDNHelp" type="button" value="MSDN  Help" class="Button" title="Press this button to search and open the relevant MSDN page for the selected class, method and/or property"></th>
+</tr>
+<tr class="Center">
+    <th colspan="2"><textarea id="Code" rows="20" cols="120" readonly="readonly" wrap="off" style="width: 100%;"></textarea></th>
+</tr>
+<tr class="Left">
+    <td colspan="2">
+    	<table class="Center">
+        <tr class="ButtonRow" style="text-align: left; margin-left: 0">
+		    <th colspan="7" title="Select a scripting language from this drop-down list and press the 'Generate Code' button to show the code for the selected WMI query and scripting language in the text area above">Select a scripting language:
+		        <select name="CodeLanguage" id="CodeLanguage" onchange="HandleLanguageChange">
+		            <option value="Batch">Batch</option>
+		            <option value="C#" style="background-color: #F0F0F0">C#</option>
+		            <option value="Delphi">Delphi</option>
+		            <option value="F#" style="background-color: #F0F0F0">F#</option>
+		            <option value="Java">Java</option>
+		            <option value="JScript" style="background-color: #F0F0F0">JScript</option>
+		            <option value="KiXtart">KiXtart</option>
+		            <option value="Lua" style="background-color: #F0F0F0">Lua</option>
+		            <option value="ObjectPascal">Object Pascal</option>
+		            <option value="ObjectRexx" style="background-color: #F0F0F0">Object Rexx</option>
+		            <option value="Perl">Perl</option>
+		            <option value="PowerShell" style="background-color: #F0F0F0">PowerShell</option>
+		            <option value="Python">Python</option>
+		            <option value="Ruby" style="background-color: #F0F0F0">Ruby</option>
+		            <option value="VB.NET">VB .NET</option>
+		            <option value="VBScript" style="background-color: #F0F0F0">VBScript</option>
+		        </select></td>
+        </tr>
+        <tr class="ButtonRow">
+            <td><input id="GenerateCodeButton" onclick="ShowCode"              type="button" value="Generate Code"     class="Button" title="Generate the code that will display the properties and their values for the selected WMI class, in the selected scripting or programming language"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="RunCodeButton"      onclick="RunCode"               type="button" value="Run WMI Code"      class="Button" title="Run the generated (VBSCript) code"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="CopyCodeButton"     onclick="CopyCode"              type="button" value="Copy to Clipboard" class="Button" title="Copy the generated code to the clipboard"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="SaveCodeButton"     onclick="SaveCode"              type="button" value="Save to File"      class="Button" title="Save the generated code to a file"></td>
+        </tr>
+        <tr class="ButtonRow">
+            <td><input id="ClearCodeButton"    onclick="ClearCode"             type="button" value="Clear"             class="Button" title="Erase the generated code"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="SettingsButton"     onclick="OnClickButtonSettings" type="button" value="Settings"          class="Button" title="Change the configuration"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="HelpButton"         onclick="ShowHelp"              type="button" value="Help"              class="Button" title="Display the on-line command line help window"></td>
+            <td class="Spacer">&nbsp;</td>
+            <td><input id="CreditsButton"      onclick="ShowCredits"           type="button" value="Credits"           class="Button" title="Display the on-line credits window"></td>
+        </tr>
+        </table></td>
+</tr>
+</table>
+
+</div><!-- End of "Main" block -->
+
+
+
+
+<div id="Settings" style="display: none; height: 100%;">
+
+<p>&nbsp;</p>
+
+<h1>Settings</h1>
+
+<table cellspacing="10">
+<tr>
+    <td>&nbsp;</td>
+    <td>Configuration file content:</td>
+	<td><input type="text" name="Command_Line" id="Command_Line" size="20" style="width: 19.5em;" readonly="readonly"></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td>Windows size (<strong><em class="Red">width</em>x<em class="Red">height</em></strong> or <strong class="Red">maximize</strong>)</td>
+    <td><input id="Window_Size" type="text" size="20" style="width: 19.5em;"></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td>Default output language</td>
+    <td><select id="Default_Language" size="1" style="width: 20em;">
+            <option value="Batch">Batch</option>
+            <option value="C#" style="background-color: #F0F0F0">C#</option>
+            <option value="Delphi">Delphi</option>
+            <option value="F#" style="background-color: #F0F0F0">F#</option>
+            <option value="Java">Java</option>
+            <option value="JScript" style="background-color: #F0F0F0">JScript</option>
+            <option value="KiXtart">KiXtart</option>
+            <option value="Lua" style="background-color: #F0F0F0">Lua</option>
+            <option value="ObjectPascal">Object Pascal</option>
+            <option value="ObjectRexx" style="background-color: #F0F0F0">Object Rexx</option>
+            <option value="Perl">Perl</option>
+            <option value="PowerShell" style="background-color: #F0F0F0">PowerShell</option>
+            <option value="Python">Python</option>
+            <option value="Ruby" style="background-color: #F0F0F0">Ruby</option>
+            <option value="VB.NET">VB .NET</option>
+            <option value="VBScript" style="background-color: #F0F0F0">VBScript</option>
+    	</select></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td>Default namespace</td>
+    <td><select id="Default_Namespace" size="1" style="width: 20em;"></select></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Exclusive_Namespace" id="Exclusive_Namespace"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Exclusive_Namespace">Use only the selected namespace (i.e. do not list namespaces at startup)</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Win32_Only" id="Win32_Only"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Win32_Only">List Win32 classes only</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Exclude_Perf" id="Exclude_Perf"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Exclude_Perf">Exclude Win32_Perf classes</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Resource_Friendly" id="Resource_Friendly"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Resource_Friendly">Generate resource-friendly code (applies to JScript, KiXtart, Object Rexx, Perl, Python, Ruby and VBScript code only)</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Use_Spaces" id="Use_Spaces"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Use_Spaces">Use spaces in property descriptions (e.g. "SCSILogicalUnit" will be displayed as "SCSI  Logical  Unit")</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Word_Wrap" id="Word_Wrap"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Word_Wrap">Enable (soft) word wrap in code screen (does not affect saved code)</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="Update_Check" id="Update_Check"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="Update_Check">Check for program updates at startup</label></td>
+</tr>
+<tr>
+    <td class="CheckBox"><input type="checkbox" name="BW" id="BW" onclick="HandleBWChange"></td>
+    <td class="CheckBoxLabel" colspan="2"><label for="BW">High contrast black and white style (click to see the effect immediately)</label></td>
+</tr>
+</table>
+
+<table cellspacing="10">
+<tr class="ButtonRow">
+	<td><input id="ResetSettingsButton" onclick="OnClickButtonResetSettings" type="button" value="Reset"  class="Button" title="Restore default settings"></td>
+	<td class="Spacer">&nbsp;</td>
+	<td><input id="EditSettingsButton"  onclick="OnClickButtonEditSettings"  type="button" value="Edit"   class="Button" title="Edit the configuration file in Notepad"></td>
+	<td class="Spacer">&nbsp;</td>
+	<td><input id="SaveSettingsButton"  onclick="OnClickButtonSaveSettings"  type="button" value="Save"   class="Button" title="Save the configuration changes and return to the main program"></td>
+	<td class="Spacer">&nbsp;</td>
+	<td><input id="CancelButton"        onclick="OnClickButtonCancel"        type="button" value="Cancel" class="Button" title="Discard the configuration changes and return to the main program"></td>
+</tr>
+</table>
+
+</div><!-- End of "Settings" block -->
+
+<div id="Help" class="Help" style="display: none; height: 100%;">
+
+<h1 id="HelpTitle">Help for WMI Code Generator</h1>
+
+<table cellspacing="10" style="font-size: 10pt; text-align: left;">
+<tr>
+	<th colspan="5">Generate source code in the selected scripting or programming language, for the selected WMI query</th>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<td colspan="5">Use this HTA to generate <a href="batchstart.php">Batch</a>,
+		<a href="http://msdn.microsoft.com/en-us/vcsharp/aa336706">C#</a>,
+		<a href="http://www.embarcadero.com/products/delphi">Delphi</a>,
+		<a href="http://msdn.microsoft.com/en-gb/fsharp">F#</a>,
+		<a href="http://en.wikipedia.org/wiki/Java_%28programming_language%29">Java</a>,
+		<a href="http://msdn.microsoft.com/en-us/library/hbxc2t98(v=VS.85).aspx">JScript</a>,
+		<a href="http://www.kixtart.org/">KiXtart</a>,
+		<a href="http://www.lua.org/">Lua</a>,
+		<a href="http://www.lazarus.freepascal.org/">Object Pascal</a>,
+		<a href="http://www.oorexx.org/">(Open) Object Rexx</a>,
+		<a href="http://www.perl.org/">Perl</a>,
+		<a href="http://technet.microsoft.com/en-us/library/bb978526.aspx">PowerShell</a>,
+		<a href="http://www.python.org/">Python</a>,
+		<a href="http://www.ruby-lang.org/en/">Ruby</a>,
+		<a href="http://msdn.microsoft.com/en-us/vbasic/ms789056">VB&nbsp;.NET</a> or
+		<a href="http://msdn.microsoft.com/en-us/library/t0aew7h6(v=VS.85).aspx">VBScript</a>
+		code for selected WMI queries.</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<th colspan="5">Interactive Usage</th>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<td colspan="5">First select a WMI namespace from the dropdown list (top right), or stick with the default (<code>root/CIMV2</code>).<br />
+		If a warning message, suggesting to abort the script, appears after selecting a namespace, click "No" to continue retrieving the list of available classes.</td>
+</tr>
+<tr>
+	<td colspan="5" class="Center"><img src="http://www.robvanderwoude.com/pictures/wmigen_warning_454x229.jpg" width="454" height="229" alt="Warning message if the HTA temporarily uses too much resources."></td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<td colspan="5">Next, select a class from the dropdown list (largest of the 3 comboboxes) marked "Select a WMI class".<br />
+		You may use the search field above the combobox to find a WMI class; e.g. with the "root/CIMV2" namespace selected, enter "cdrom" in the search field and then click the "Search" button to jump to the "Win32_CDROMDrive" class.
+		Clicking "Search" again will jump to the next match, if available.</td>
+</tr>
+<tr>
+	<td colspan="5">The "Properties" and "Methods" fields will show the properties and methods available for the selected class, if any.</td>
+</tr>
+<tr>
+	<td colspan="5">To get detailed information on a class or a method or property, select that class (and optionally a method or property) and click the "MSDN Help" button.<br />
+		This will open your default browser with a list of relevant Google Search results.</td>
+</tr><tr>
+	<td colspan="5">Select a scripting or programming language from the drop-down list and click the "Generate&nbsp;Code" button to generate the code that will display all properties of the selected class, and their values, in the scripting or programming language of your choice.</td>
+</tr>
+<tr>
+	<td colspan="5">To test the selected query on your own computer, click the "Run&nbsp;WMI&nbsp;Code" button and wait for the result to appear on screen.
+		Click "Generate&nbsp;Code" once more to redisplay the code in the selected scripting language.</td>
+</tr>
+<tr>
+	<td colspan="5">Click "Save" to save the generated code (or query result) to a file, or "Copy" to copy it to the clipboard.</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<th colspan="5">Command Line Usage</th>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr class="Top">
+	<td><strong>Usage:</strong></td>
+	<td>&nbsp;</td>
+	<td colspan="3"><code>WMIGEN.HTA  [ options ]  [ switches ]</code></td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr class="Top">
+	<th class="Left">Options:</th>
+	<th>&nbsp;</th>
+	<th class="Left" colspan="3">The following options can be set in the configuration file or on the command line<br />
+		(in case of conflicts, the command line overrules the configuration file)</th>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/NAMESPACE:<em>namespace</em></td>
+	<td>&nbsp;</td>
+	<td>Specifies the initial WMI namespace to be opened (default: <code>root/CIMV2</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/WIN32</td>
+	<td>&nbsp;</td>
+	<td>List <code>Win32_*</code> classes only</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/NOPERF</td>
+	<td>&nbsp;</td>
+	<td>Exclude <code>Win32_Perf*</code> classes</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/FAST</td>
+	<td>&nbsp;</td>
+	<td>Skip the query to populate the namespaces list, an "populate" this list with the value specified by the <code>/NAMESPACE:<em>namespace</em></code> option only</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/LANGUAGE:<em>language</em></td>
+	<td>&nbsp;</td>
+	<td>Specifies the initial programming or script language; <code><em>language</em></code> value as listed in drop-down box, but <em>without spaces</em> (default: <code>Batch</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/LOWRES</td>
+	<td>&nbsp;</td>
+	<td>Generate code that uses less resources, at the cost of the results being "read-once" only (ignored for C#, F#, Java, Lua, PowerShell and VB.NET)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/SPACES</td>
+	<td>&nbsp;</td>
+	<td>Insert spaces in property name descriptions, e.g. "<code>SCSI&nbsp;Logical&nbsp;Unit</code>" instead of "<code>SCSILogicalUnit</code>" (ignored for Batch)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/WRAP</td>
+	<td>&nbsp;</td>
+	<td>Enable (soft) word wrap in the generated code field (does not affect saved code)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/SIZE:WxH</td>
+	<td>&nbsp;</td>
+	<td>Center window and resize to W x H pixels<br />
+		(e.g. <code>/SIZE:1024x768</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/BW</td>
+	<td>&nbsp;</td>
+	<td>Use high contrast black and white style for this HTA window</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/NOUPD</td>
+	<td>&nbsp;</td>
+	<td>Skip check for updates at startup</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr class="Top">
+	<th class="Left">Switches:</th>
+	<th>&nbsp;</th>
+	<th class="Left" colspan="3">The following options can only be set on the command line</th>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/CLASS:<em>class</em></td>
+	<td>&nbsp;</td>
+	<td>Specifies the WMI class to be selected</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/GENERATE</td>
+	<td>&nbsp;</td>
+	<td>Generate the code immediately<br />
+		(requires <code>/CLASS</code> and, optionally, <code>/LANGUAGE</code> and <code>/NAMESPACE</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/RUN</td>
+	<td>&nbsp;</td>
+	<td>Run the generated VBScript code immediately<br />
+		(requires <code>/CLASS</code> and, optionally, <code>/NAMESPACE</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/COPY</td>
+	<td>&nbsp;</td>
+	<td>Copy the generated code or result to the clipboard<br />
+		(requires <code>/GENERATE</code> or <code>/RUN</code>)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td class="Code">/SAVE:"<em>filename</em>"</td>
+	<td>&nbsp;</td>
+	<td>Save the generated code or result to a file<br />
+		(requires <code>/GENERATE</code> or <code>/RUN</code>; existing files will be overwritten without confirmation)</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td><code>/?</code> or <code>/HELP</code></td>
+	<td>&nbsp;</td>
+	<td>Show this message</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr class="Top">
+	<td><strong>Notes:</strong></td>
+	<td><strong>&nbsp;1:&nbsp;</strong></td>
+	<td colspan="3">The optional configuration file is named "WMIGen.cfg", and must be located in the same folder where this HTA is located.<br />
+		"WMIGen.cfg" is formated as a single command line, e.g. <code>/WIN32 /NOPERF /LANGUAGE:C#</code></td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;2:&nbsp;</strong></td>
+	<td colspan="3">Command line arguments will always prevail over "WMIGen.cfg" settings!</td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;3:&nbsp;</strong></td>
+	<td colspan="3">To run without <em>any</em> user interaction requires one of the following combinations of command line arguments:
+		<ul>
+			<li class="Code">/CLASS:"<em>class</em>" /GENERATE /COPY</li>
+			<li class="Code">/CLASS:"<em>class</em>" /GENERATE /SAVE:"<em>filename</em>"</li>
+			<li class="Code">/CLASS:"<em>class</em>" /RUN /COPY</li>
+			<li class="Code">/CLASS:"<em>class</em>" /RUN /SAVE:"<em>filename</em>"</li>
+		</ul>
+		<code>/NAMESPACE:"<em>namespace</em>"</code> and <code>/LANGUAGE:"<em>language</em>"</code> are optional, their default values <code>root/CIMV2</code> and <code>Batch</code> will be used if not specified.</td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;4:&nbsp;</strong></td>
+	<td colspan="3">If the extension of <code><em>filename</em></code> is "<code>.*</code>", it will be replaced by an extension based on the selected language, i.e. "<code>.bat</code>" for Batch, "<code>.cs</code>" for C#, etcetera, or by "<code>.txt</code>" for WMI query results.</td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;5:&nbsp;</strong></td>
+	<td colspan="3">On startup, the HTA checks if it is running with elevated privileges, and displays an error message if not.<br />
+		On 64-bit systems, HTAs may be incorrectly associated with the 32-bit MSHTA.EXE (<code>%windir%\<strong>SysWOW64</strong>\mshta.exe</code>).
+		As a result, you would get the error message regardless of privileges.<br />
+		In that case, add the path to the proper (64-bit) MSHTA to this HTA's command line:<br />
+		<br />
+		<code>%windir%\<strong>system32</strong>\mshta.exe "<span id="PathToHTA">d:\path\WMIGen.hta</span>" [ options ]</code></td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;6:&nbsp;</strong></td>
+	<td colspan="3">Also on startup, the HTA checks if an update is available, and will prompt you to download it if so.</td>
+</tr>
+<tr class="Top">
+	<td>&nbsp;</td>
+	<td><strong>&nbsp;7:&nbsp;</strong></td>
+	<td colspan="3">When prompting for a target file after the "Save" button is clicked, the HTA will use <a href="http://www.robvanderwoude.com/dialogboxes.php#SaveFileBox">SaveFileBox.exe</a> if it is available, otherwise you will be asked to type the fully qualified path in a "standard" InputBox.</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr class="Top">
+	<td><strong>Examples:</strong></td>
+	<td>&nbsp;</td>
+	<td colspan="3" class="Code Nowrap">WMIGEN.HTA /WIN32 /NOPERF /SIZE:1024x768</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td colspan="3" class="Code Nowrap">WMIGEN.HTA /NAMESPACE:root/SecurityCenter2</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td colspan="3" class="Code Nowrap">WMIGEN.HTA /NAMESPACE:root/WMI /CLASS:WmiMonitorID /GENERATE /SAVE:"monitor_inventory.bat"</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td colspan="3" class="Code Nowrap">WMIGEN.HTA /NAMESPACE:root/WMI /CLASS:WmiMonitorID /RUN /COPY<br />
+	    <a href="http://www.robvanderwoude.com/csharpexamples.php#Paste">PASTE.EXE</a> &gt;&gt; monitor_inventory.txt</td>
+</tr>
+<tr class="Top">
+	<td colspan="2">&nbsp;</td>
+	<td colspan="3" class="Code Nowrap">WMIGEN.HTA /CLASS:Win32_BIOS /LANGUAGE:C# /GENERATE /SAVE:"bios_query.cs"</td>
+</tr>
+<tr><td colspan="5">&nbsp;</td></tr>
+<tr>
+	<td class="Center" colspan="5"><input onclick="OnClickButtonCancel" type="button" value="Back" class="Button" title="Return to the main program"></td>
+</tr>
+</table>
+
+</div><!-- End of "Help" block -->
+
+<div id="Credits" class="Help" style="display: none; height: 100%;">
+
+<h1 id="CreditsTitle">Credits for WMI Code Generator</h1>
+
+<p>&nbsp;</p>
+
+<p>Based on the Microsoft TechNet ScriptCenter article <a href="http://www.microsoft.com/technet/scriptcenter/resources/guiguy/default.mspx">Scripting Eye for the GUI Guy</a>.</p>
+
+<p>Created with the help of <a href="http://technet.microsoft.com/en-us/library/cc785775%28v=ws.10%29.aspx" class="Code">WBEMTEST</a>, the Scripting Guys' <a href="http://www.microsoft.com/technet/scriptcenter/tools/scripto2.mspx">Scriptomatic</a> and <a href="http://www.microsoft.com/downloads/details.aspx?FamilyId=231D8143-F21B-4707-B583-AE7B9152E6D9">HTA Helpomatic</a> tools, and Adersoft's <a href="http://www.htaedit.com/">HTAEdit</a>.</p>
+
+<p>Java code based on NickDMax's <a href="http://www.dreamincode.net/code/snippet3297.htm">JACOB sample</a> on DreamInCode.net.</p>
+
+<p>Lua code based on "test_wmi.lua" example that comes with the <a href="https://code.google.com/p/luaforwindows/">Lua for Windows</a> installation package.</p>
+
+<p>Object Pascal (Delphi &trade;) code based on <a href="http://theroadtodelphi.wordpress.com/2010/12/01/accesing-the-wmi-from-pascal-code-delphi-oxygene-freepascal/#Lazarus">sample WMI code</a> from "The Road To Delphi"; adapted for, and tested in, <a href="http://www.lazarus.freepascal.org/">Lazarus IDE</a>.</p>
+
+<p>Object Rexx code based on the Rexx script samples found at Microsoft's <a href="http://www.microsoft.com/technet/scriptcenter/scripts/rexx/default.mspx?mfr=true">Script Repository</a>; tested with <a href="http://www.oorexx.org/">Open Object Rexx</a>.</p>
+
+<p>Ruby code based on David Mullet's <a href="http://rubyonwindows.blogspot.com/2007/07/using-ruby-wmi-to-get-win32-process.html">Using Ruby & WMI to Get Win32 Process Information</a>.</p>
+
+<p>MSDN Help search based on <a href="http://www.google.com/">Google Search</a> and completed with help from <a href="http://www.seroundtable.com/archives/015944.html">Search Engine Roundtable</a>.</p>
+
+<p>Check for <a href="http://www.robvanderwoude.com/clevertricks.php#Elevated2">elevated privileges</a> by Denis St-Pierre.</p>
+
+<p>&nbsp;</p>
+
+<p class="Center"><input onclick="OnClickButtonCancel" type="button" value="Back" class="Button" title="Return to the main program"></p>
+
+</div><!-- End of "Credits" block -->
+
+<div id="CopyrightsBlock" class="Center" style="color: black;">
+<p><span style="font-size: 12pt">WMI Code Generator,&nbsp; Version <span id="AppVersion">0.00</span></span><br />
+&copy; 2006 - <span id="CopyrightsYear">2013</span> Rob van der Woude<br />
+<a href="http://www.robvanderwoude.com/wmigen.php">http://www.robvanderwoude.com/wmigen.php</a></p>
+</div>
+
+</div><!-- End of "Center" style block -->
+
+</body>
+</html>

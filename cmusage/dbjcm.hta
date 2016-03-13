@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+    <meta charset="utf-8">
+    <!-- meta http-equiv="X-UA-Compatible" content="IE=edge" -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<hta:application
+  APPLICATIONNAME="dbj-cm"
+  ID="dbj-cm"
+  VERSION="0.1"
+  ICON="dbjcm.ico"
+  SINGLEINSTANCE="yes" >
+  </hta:application>
+<title>dbjcm</title>
+<link rel="stylesheet" href="cm/lib/codemirror.css">
+<link rel="stylesheet" href="cm/theme/midnight.css">
+<link rel="stylesheet" href="slider.css">
+<style type="text/css">
+
+*, body, button, html, input, select, textarea {
+   font-family: monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html,body {
+   width:100%;height:auto;
+   margin:0px;padding:0px;
+   font:14px/1.4 monospace;
+   overflow:hidden;
+   position: relative;
+}
+
+textarea { resize:both; } /* none|horizontal|vertical|both */
+
+div.container { 
+		margin:none; padding:none; border:none; 
+		overflow:hidden;
+		position:relative;
+		width:100%;
+		min-height: 100%;
+}
+
+.container textarea {
+   min-width: 100px;
+   width:100%;
+   height:100%;
+}
+
+.CodeMirror {
+ min-height:100%;
+}
+
+div.toolbar {
+  position:absolute;
+  top:1%;
+  left:50%;
+  z-index:2;
+}
+
+div#editor_status {
+   width:100%;height:400px;
+   min-height:100%;
+   background:#7fbebe;
+   font-weight:bolder;
+   position:relative;
+   z-index: -1;
+}
+</style>
+</head>
+<body>
+<!--------------------------------------------------------------------------------------------------------------->
+<div class="toolbar">
+<button id="toggle_button" data-previous-caption="Editor" >Status</button>
+</div>
+<!--------------------------------------------------------------------------------------------------------------->
+<div class="container" >
+<div class="slider opened">
+<textarea id="myTextarea" cols="80" rows="40" autofocus="true" ></textarea>
+</div>
+<div id="editor_status" class="slider closed"></div>
+</div>
+<!--------------------------------------------------------------------------------------------------------------->
+<!-- Create a simple CodeMirror instance -->
+<script src="cm/lib/codemirror.js"></script>
+<script src="cm/mode/javascript/javascript.js"></script>
+<script>
+//
+var slider_setup = (function () {
+var data_attr_name = "data-previous-caption";
+
+var flip_toggle_value = function () {
+	    var previous_caption = toggle.getAttribute(data_attr_name);
+		var current_caption  = toggle.innerText ;
+		toggle.innerText = previous_caption ;
+		toggle.setAttribute(data_attr_name,current_caption);
+}
+
+var toggle = document.getElementById('toggle_button');
+var slider = document.querySelector('.slider');
+
+toggle.addEventListener('click', toggleSlider, false);
+
+	function toggleSlider(){
+		if (slider.classList.contains('opened')) {
+			slider.classList.remove('opened');
+			slider.classList.add('closed');
+		} else {
+			slider.classList.remove('closed');
+			slider.classList.add('opened');
+		}
+			flip_toggle_value();
+	}
+	return function () {
+	}
+	
+})();
+//----------------------------------------------------------------------------------------
+var status_append  = function () {
+
+    var status_div = document.getElementById('editor_status');
+    var args = Array.prototype.slice.call(arguments);
+	if ( args.length < 1 ) {
+	     status_div.innerText = "";
+	} else {
+	var first_arg =  document.createTextNode(args[0] + "") ;
+	status_div.insertBefore(first_arg, status_div.childNodes[0]);  
+	}
+		 return status_append ;
+}
+//----------------------------------------------------------------------------------------
+/*
+var inner_page_size = function () {
+    var sz = null ;
+     inner_page_size = function () {
+                  sz = { 
+                        "w" : function () { return window.innerWidth  || document.documentElement.clientWidth  || document.body.clientWidth;  },
+                        "h" : function () { return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight; },
+                       toString :  function () { return "w: " + this.w() + ", h: " + this.h() ; } 
+                       };
+             return sz ;
+       }
+       return inner_page_size ();
+}
+//
+window.onresize = function () {
+		myTextarea.style.width = inner_page_size().w() + "px" ;
+		myTextarea.style.height = inner_page_size().h()+ "px" ;
+}
+//
+*/
+ window.onload = function () {
+  "use strict";
+  try {
+       // var size_string = "" + inner_page_size();
+	  slider_setup();
+	  
+	  myTextarea.value = "// JavaScript Local Micro Preter (LMP)(c) DBJ.ORG";
+	  
+  	  var editor = CodeMirror.fromTextArea(myTextarea, {
+			lineNumbers: true,
+			theme : "midnight",
+			firstLineNumber : 100,
+			value: myTextarea.value,
+			autofocus : true
+		  });
+		  
+		  editor.focus();
+		  
+		  status_append( editor.getValue() ) ;
+		  
+  } catch(x) {
+     alert("dbjcm exception!\n\n" + x + "\n\n");
+  }
+  }
+</script>
+</body>
+</html>

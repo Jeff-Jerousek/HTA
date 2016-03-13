@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DBJ*Aloha</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+<script src="http://www.alohaeditor.org/download/aloha.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!------------------------------------------------------------>
+<style type="text/css">
+/* --------------------------------------------------------- */
+html,body { 
+   width:100%;
+   height:auto;
+   min-height:100%;
+   position:relative; 
+   overflow:hidden; 
+   font:14px/1.5 sans-serif;
+}
+/* --------------------------------------------------------- */
+div.aloha {
+    width:100%;height:600px;min-height:100%;position:relative;
+	border:1px solid;
+}
+/* --------------------------------------------------------- */
+</style>
+</head>
+<body>
+<!------------------------------------------------------------>
+<button class="action-bold">B</button>
+<button class="action-italic">I</button>
+<button class="action-underline">U</button>
+<button class="action-unformat">?</button>
+<div id="aloha_div" class="aloha" ContentEditable >Aloha?</div>
+<!------------------------------------------------------------>
+<script type="text/javascript" >
+$(function () {
+   aloha(aloha_div);
+   
+		for (var command in aloha.ui.commands) {
+			$('.action-' + command).on(
+				'click',
+				aloha.ui.command(aloha.ui.commands[command])
+			);
+		}
+});
+</script>
+<!------------------------------------------------------------>
+</body>
+</html>

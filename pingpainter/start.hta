@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Start PINGPAINTER&trade;</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="bs/css/bootstrap.min.css" rel="stylesheet">
+
+
+    <!-- Custom styles for this template -->
+    <link href="cover.css" rel="stylesheet">
+
+	<style>
+	.site-wrapper {
+	      background-image: url(./giphy.gif);
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size:cover;
+		}
+	</style>
+  </head>
+
+  <body>
+
+    <div class="site-wrapper">
+
+      <div class="site-wrapper-inner">
+
+        <div class="cover-container">
+
+          <div class="masthead clearfix">
+            <div class="inner">
+              <h3 class="masthead-brand">&copy; DBJ.SYSTEMS</h3>
+              <nav>
+                <ul class="nav masthead-nav">
+                  <li><a href="http://dbj.systems" target="_blank">Contact</a></li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+
+          <div style="position:absolute;text-align:left;left:1%;top:8%;width:40%;color:black;"  class="inner cover">
+            <h1 class="cover-heading">How slow is your broadband right now?</h1>
+            <p class="lead">PINGPAINTER&trade; is a one-page App for showing your machine ping times. If you are wondering if this 'ping' has to do anything with 'ping pong', then please <a href="https://en.wikipedia.org/wiki/Ping_(networking_utility)" target="_blank">read here.</a></p>
+            <p class="lead">
+              <a application id="runpingpainter" class="btn btn-lg btn-default">Start PINGPAINTER&trade;</a>
+            </p>
+          </div>
+
+          <div class="mastfoot">
+            <div class="inner">
+              <p>Cover template for <a href="http://getbootstrap.com">Bootstrap</a>, by <a href="https://twitter.com/mdo">@mdo</a>.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="js/jquery.min.js"></script>
+    <script src="bs/js/bootstrap.min.js"></script>
+	<script>
+	onload = function (){
+	
+		$("#runpingpainter")
+		.click( 
+					function ( evt ) {
+						var objShell = new ActiveXObject("Wscript.Shell");
+						objShell.Run("pingpainter.hta");
+						try {
+								// window.top.close();
+								// open(location, '_self').close(); // ?
+								window.close();
+						} catch (x) {
+						        // all of the above closing variants can throw 
+								// just ingore it :)
+								console.err(x);
+						}
+					}
+		);
+	
+	}
+	</script>
+  </body>
+</html>
