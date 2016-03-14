@@ -23,7 +23,7 @@ var ping_paint = function (ip_to_ping, output_cb, ping_rezult_display_element)
         //output_cb(); // output reset
         //output_cb("Count: " + (ctr = counter()));
         var ping_time = dbj.wmi.ping(ip_to_ping, output_cb);
-        avg = (accumulator += ping_time) / ctr;
+        avg = ping_time; // (accumulator += ping_time) / ctr;
 
          output_cb("ping_time:{0}, Accumulator:{1}, Average:{2}".format(ping_time, accumulator, avg));
 
