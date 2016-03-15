@@ -1,26 +1,20 @@
-<!-- DOCTYPE html -->
+<!DOCTYPE html>
 <html  lang="en">
 <head>
     <meta charset="utf-8">
-    <!-- meta http-equiv="X-UA-Compatible" content="IE=edge" -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <title>dbj PINGPAINTER</title>
-<!--
-https://gist.githubusercontent.com/anonymous/b73ead4c4ee7ca001dfe/raw/d5189e7f13e9aafa4cbeb65346f5dd7a7e21c76b/app.min.js
--->
-<script id="dbj_micrlolib_script">
-"function"!=typeof String.format&&(String.prototype.format=function(){var t=arguments;return this.replace(/\{(\d|\d\d)\}/g,function(n){var r=1*n.match(/\d+/)[0];return void 0!==t[r]?t[r]:""===t[r]?"":n})});var dbj={GLOBAL:function(){var t=Object.prototype.toString;Object.prototype.hasOwnProperty;"function"!=typeof window.roleof&&(window.roleof=function(n){return t.call(n).match(/\w+/g)[1]}),"function"!=typeof window.isArray&&(window.isArray=function(t){return"Array"===roleof(t)}),"function"!=typeof window.isObject&&(window.isObject=function(t){return"Object"===roleof(t)}),"function"!=typeof window.isFunction&&(window.isObject=function(t){return"Function"===roleof(t)})}(),try_calling_nicely:function(){try{var t=1===arguments.length?[arguments[0]]:Array.apply(null,arguments),n=t[0],r=t[1];return r.apply(n,t.slice(2))}catch(e){return e.message}},createXHR:function(){var t=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}];return dbj.createXHR=function(){for(var n=t.length;n--;)try{return t[n]()}catch(r){}return alert("dbj.createXMLHTTPObject() failed ?"),!1},dbj.createXHR()},$:function(t,n){return(n||document).querySelector(t)},$$:function(t,n){return(n||document).querySelectorAll(t)},later:function(t,n,r){var e=r?[].slice.call(arguments,3):[].slice.call(arguments,1);t||(t=this||window);var o=setTimeout(function(){clearTimeout(o),o=null,delete o;try{n.apply(t,e)}catch(r){throw r.message}},r||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(t,n){if(!t)throw dbj.later(dbj,function(){this.console.group(),console.err("dbj.assert failed for: "+t+", msg: "+t.message),this.console.group_end()}),"dbj.assert failed for: "+t},print:function(t,n){dbj.later(dbj,function(){n&&this.console.group(),console.log(t),n&&this.console.group_end()})},evil:function(){"use strict";var t="evil_"+ +new Date;return function(n){return(1,eval)("top['"+t+"'] = ("+n+")"),top[t]}}(),num:function(t){return t-0},round:function(t,n){var r=Math.pow(10,n),e=t*r,o=Math.round(e);return o/r},toUint32:function(t){return t>>>0},toInt32:function(t){return t>>0},seed:function(){return Math.random()*(new Date-0)>>>0}};!function(){var t={empty:"00000000-0000-0000-0000-000000000000",make:function(){return t.four()+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+t.four()+t.four()},four:function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()}};dbj.GUID=function(){return t.make()}}();
-</script>
+    <title>dbj*PINGPAINTER</title>
     
-	<HTA:APPLICATION
+<HTA:APPLICATION
   APPLICATIONNAME="dbj-ping-state"
   ID="dbj_ping_hta"
   VERSION="0.5"
   BORDER="dialog"
   BORDERSTYLE="static"
   INNERBORDER="no"
-  ICON="appview.ico"
+  ICON="media/appview.ico"
   SCROLL="no"
   SCROLLFLAT="yes"
   SINGLEINSTANCE="yes"
@@ -28,6 +22,12 @@ https://gist.githubusercontent.com/anonymous/b73ead4c4ee7ca001dfe/raw/d5189e7f13
   SELECTION="no"/>
   
   <style>
+  .centerer {
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+  }
+
   html,body {
       background-color:#515151;
       padding:0px;
@@ -35,52 +35,46 @@ https://gist.githubusercontent.com/anonymous/b73ead4c4ee7ca001dfe/raw/d5189e7f13
       width:400px;
       height:500px;
       padding:1px;
-       display: flex;
+	  font:100%/1.2 sans-serif;
+  }
+  #dbj_pingpainter {
+      padding:0px;margin:0px;
+	  width:100%;
+	  height:100%;
+    }
+
+  .status_tile {
+	 width:100%;
+     height:50%;
+     background-color:inherit;
+     margin:1px;
+	 font:510%/1.0 sans-serif;
+	 text-align: center;
+  display: flex;
   align-items: center;
   justify-content: center;
   }
-      #dbj_pingpainter {
-      padding:0px;margin:0px;
-  width:100%;
-  height:100%;
-  display: flex;
-  align-items: center;
-  justify-content: center ;
-      }
-
-  div.status_tile {
-     font-size: 127px ;
-	 text-align: center;
+  
+   #title_ { position: relative; top:-20%; left:2px;  font-size: 90% ;
+   }
+  img.waiter {
 	 width:100%;
      height:50%;
-     background-color:orange;
      margin:1px;
-  display: flex;
-  align-items: center;
-  justify-content: center; 
+	 position: relative; top:-45px; left:0px;
   }
-
-      img.waiter {
-	 width:100%;
-     height:50%;
-     margin:1px;
-      }
 
 </style>
 </head>
 <!-- https://msdn.microsoft.com/library/windows/apps/hh701658 -->
 <!-- object id="appview" runat="server" class="Windows.UI.ViewManagement.ApplicationView" ></object -->
-<body noscroll>
+<body noscroll class="centerer">
 <!---------------------------------------------------------------------------------->	
-<div id="dbj_pingpainter"   class="container">
-	<h1 id="title_"        style="display:none;" >DBJ*NET STATUS &copy; 2016 by DBJ.SYSTEMS</h1>
-	<div id="pingstat"      class="status_tile"></div>
-	<img class="waiter"     src="./giphy.gif" />
+<div id="dbj_pingpainter"   class="centerer">
+	<div id="pingrezult" 	class="centerer status_tile"></div>
+	<img class="waiter"     src="./media/giphy.gif" />
+	<p id="title_"  >dbj*pingPAINTER &copy; 2016 by DBJ.SYSTEMS</p>
 </div>
-<!---------------------------------------------------------------------------------->	
-<script src="js/swbem_ping_dbj.js"></script>
-<script src="js/dbj_app.js"></script>
-<script src="js/pingpainter_dbj.js"></script>
 <script id="page_script">
     //----------------------------------------------------------------------------------
     this.DBJAPP = null;
@@ -90,26 +84,23 @@ this.onload = function () {
         try {
 
            // debugger;
-
             DBJAPP = dbj.APP(dbj_ping_hta);
 
-            // alert("Content of {0} :\n {1}".format( cfgfilename, dbj.app.cfg(cfgfilename)));
-	
-            //      dbj_hero.style.display = "none" ;
             dbj_pingpainter.display = "initial";
 		
 
                 var ip_to_ping = "8.8.8.8", interval = 5000 ;
 
-                document.title = ip_to_ping + " | " + title_.innerText;
+                document.title = ip_to_ping + " | " + (new Date()).toLocaleString() + " | " + title_.innerText;
 
-                ping_paint(ip_to_ping, dbj.trace, document.getElementById("pingstat"));
+                ping_paint(ip_to_ping, dbj.trace, document.getElementById("pingrezult"));
 
                 var tid = setInterval(function () {
                     ping_paint(ip_to_ping);
                 }, interval);
             } catch (x) {
-                    var wmierr = dbj.wmi.err() ;
+
+			var wmierr = dbj.wmi.err() ;
 
                 dbj.print(
                 "Exception : {0} {1}".format(
@@ -120,13 +111,20 @@ this.onload = function () {
             }
         }
 
-    window.resizeTo(450,550);
+    window.resizeTo(350,400);
 
 	dbj_main();
 }
 
 </script>
-    <!-- Placed at the end of the document so the pages load faster -->
-    <script src="js/jquery.min.js"></script>
+<!-- Placed at the end of the document so the pages loads faster -->
+<script src="js/jquery.min.js"></script>
+<script id="dbj_microlib_script">
+"function"!=typeof String.format&&(String.prototype.format=function(){var t=arguments;return this.replace(/\{(\d|\d\d)\}/g,function(n){var r=1*n.match(/\d+/)[0];return void 0!==t[r]?t[r]:""===t[r]?"":n})});var dbj={GLOBAL:function(){var t=Object.prototype.toString;Object.prototype.hasOwnProperty;"function"!=typeof window.roleof&&(window.roleof=function(n){return t.call(n).match(/\w+/g)[1]}),"function"!=typeof window.isArray&&(window.isArray=function(t){return"Array"===roleof(t)}),"function"!=typeof window.isObject&&(window.isObject=function(t){return"Object"===roleof(t)}),"function"!=typeof window.isFunction&&(window.isObject=function(t){return"Function"===roleof(t)})}(),try_calling_nicely:function(){try{var t=1===arguments.length?[arguments[0]]:Array.apply(null,arguments),n=t[0],r=t[1];return r.apply(n,t.slice(2))}catch(e){return e.message}},createXHR:function(){var t=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}];return dbj.createXHR=function(){for(var n=t.length;n--;)try{return t[n]()}catch(r){}return alert("dbj.createXMLHTTPObject() failed ?"),!1},dbj.createXHR()},$:function(t,n){return(n||document).querySelector(t)},$$:function(t,n){return(n||document).querySelectorAll(t)},later:function(t,n,r){var e=r?[].slice.call(arguments,3):[].slice.call(arguments,1);t||(t=this||window);var o=setTimeout(function(){clearTimeout(o),o=null,delete o;try{n.apply(t,e)}catch(r){throw r.message}},r||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(t,n){if(!t)throw dbj.later(dbj,function(){this.console.group(),console.err("dbj.assert failed for: "+t+", msg: "+t.message),this.console.group_end()}),"dbj.assert failed for: "+t},print:function(t,n){dbj.later(dbj,function(){n&&this.console.group(),console.log(t),n&&this.console.group_end()})},evil:function(){"use strict";var t="evil_"+ +new Date;return function(n){return(1,eval)("top['"+t+"'] = ("+n+")"),top[t]}}(),num:function(t){return t-0},round:function(t,n){var r=Math.pow(10,n),e=t*r,o=Math.round(e);return o/r},toUint32:function(t){return t>>>0},toInt32:function(t){return t>>0},seed:function(){return Math.random()*(new Date-0)>>>0}};!function(){var t={empty:"00000000-0000-0000-0000-000000000000",make:function(){return t.four()+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+t.four()+t.four()},four:function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()}};dbj.GUID=function(){return t.make()}}();
+</script>
+<!---------------------------------------------------------------------------------->	
+<script src="js/swbem_ping_dbj.js"></script>
+<script src="js/dbj_app.js"></script>
+<script src="js/pingpainter_dbj.js"></script>
 </body>
 </html>

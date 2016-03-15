@@ -1,0 +1,166 @@
+<!DOCTYPE html >
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Flotinger = Flot + Pinger</title>
+	<link href="examples.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+
+	<div id="header">
+		<h2>Flotinger = Flot + Pinger</h2>
+	</div>
+
+	<div id="content">
+        <button id="start_button" style="float:left;display:inline;margin-right:2%;" onclick="start(this)">Waiting ...</button>
+		<p style="float:left;" id="ping_time">Last ping response time: 0</p>
+		<div class="demo-container" style="clear:both;" >
+			<div id="placeholder" class="demo-placeholder"></div>
+		</div>
+
+		<p>You can update a chart periodically to get a real-time effect by using a timer to insert the new data in the plot and redraw it.</p>
+
+		<p>Remote thing to ping (IP or domain name): <input id="remote_adrs" type="text" value="http://orig01.deviantart.net/92d3/f/2010/110/7/2/pla_sf_3_by_recon071.jpg" style="text-align: left; width:100%"></p>
+		<p>Time between updates: <input id="updateInterval" type="text" value="" style="text-align: right; width:5em"> milliseconds</p>
+
+	</div>
+
+	<div id="footer">
+		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen
+	</div>
+</body>
+        <script type="text/javascript" src="../js/jquery.min.js"></script>
+	<script type="text/javascript" src="jquery.flot.js"></script>
+    <script type="text/javascript" src="jquery.flot.threshold.js"></script>
+	<script type="text/javascript" src="ping.js"></script>
+	<script type="text/javascript">
+
+	    function keep_number_inside(val, bounds) {
+
+	        if (bounds) keep_number_inside.boundaries = bounds.sort();
+	        val = val - 0;
+	        if (isNaN(val)) return keep_number_inside.boundaries[0];
+	        return val > keep_number_inside.boundaries[1] ? keep_number_inside.boundaries[1] : (val < keep_number_inside.boundaries[0] ? keep_number_inside.boundaries[0] : val);
+	    }
+	    keep_number_inside.boundaries = [0, 1]; // default
+
+	    /*
+        * Called when all is well
+        */
+function page_ready () {
+
+
+	    var data = [], totalPoints = 300, data_pointer_ = 0 ,
+	        
+	        data_pointer = function () {
+	            return data_pointer_ > totalPoints ? data_pointer_ = 0 : data_pointer_++;
+	        };
+
+		/* */
+		function createRandomData( max_y ) {
+
+		    var retval = [];
+		    retval[0] = parseInt(max_y / 2);
+			var y;
+			// Do a random walk
+			while (retval.length < totalPoints) {
+
+			    y = retval[retval.length - 1] + Math.random() * 10 - 5;
+
+			    y = keep_number_inside(y, [0, max_y]);
+
+				retval.push(y);
+			}
+
+			// index the generated y values with the x values
+			for (var x = 0; x < retval.length; ++x) {
+			    retval[x] = [x, retval[x]];
+			}
+			    return retval; // shit that will be rectified
+		}
+		/* */
+
+		// Set up the control widget
+		var updateInterval = 30;
+		$("#updateInterval").val(updateInterval).change(function () {
+			var v = $(this).val();
+				updateInterval = keep_number_inside(v, [1, 2000]);
+			$(this).val("" + updateInterval);
+		});
+
+		function createPlotWithOptions(d1, t) {
+		    return $.plot("#placeholder", [{
+		        data: d1,
+		        color: "rgb(30, 180, 20)",
+		        threshold: {
+		            below: t,
+		            color: "rgb(200, 20, 30)"
+		        },
+                lines: {
+                    steps: true
+                },
+                series: {
+                    shadowSize: 0	// Drawing is faster without shadows
+                },
+                yaxis: { min: 0, max: 100 },
+                xaxis: { show: false }
+            }
+
+		    ]);
+		}
+
+		
+		function update(data_index, last_ping_value ) {
+
+		    data[data_index] = [data_index, last_ping_value]; // create 2D point
+		    $("#ping_time").text("Ping : " + data[data_index].join(" * "));
+			// plot.setData( data );
+		    // Since the axes don't change, we don't need to call plot.setupGrid()
+			// plot.setupGrid();
+			plot.draw();
+		}
+
+
+		var plot_timer = null ;
+		
+		var plot = createPlotWithOptions(data = createRandomData(100), 60);
+
+		start = function ( parent_element ) {
+
+		    parent_element.innerText = "Stop";
+
+            if ( plot_timer != null ) {
+				clearTimeout(plot_timer); plot_timer = null; return false;
+				parent_element.innerText = "Start";
+            }
+
+			var remote = $("#remote_adrs").val();
+
+			plot_timer = setInterval(
+			function (){
+					collect_ping_data(remote, data_pointer(), update )
+				
+		    }, 
+			updateInterval);
+		};
+		
+		// Add the Flot version string to the footer
+		$("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
+	} ;
+
+        //--------------------------------------
+		onload = function () {
+			$.getScript( "http://raw.githubusercontent.com/DBJDBJ/JSK/master/dbj.microlib.min.js" )
+			  .done(function (script, textStatus) {
+			      dbj.$("start_button").innerText = "Start";
+			      page_ready();
+			  })
+			  .fail(function( jqxhr, settings, exception ) {
+				alert( "Loading dbjMICROLIB Triggered ajaxError handler. Exception: " + exception );
+			});
+		}
+
+</script>
+</html>

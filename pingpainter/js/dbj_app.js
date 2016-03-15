@@ -1,20 +1,11 @@
 ﻿
-this.dbj || (this.dbj = {});
-
-if ( roleof (dbj.err2str) != "Function" ) dbj.err2str = function (eo) {
-
-    if (roleof(eo) != "Error") eo = new Error(0, "" + eo);
-
-    return "Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(
-    e.number & 0xFFFF,
-    e.number >> 16 & 0x1FFF,
-    e.message,
-    e.name
-    );
-    
+if (!dbj) {
+    alert("At this point dbj object must exist.");
+    debugger;
 }
 
-window.onerror = function dbj_hta_err_handler (message, url, line) {
+
+window.onerror = function (message, url, line) {
     alert("ONERROR event caught!\n\nmessage: " + message + "\nurl: " + url + "\nline: " + line);
     debugger;
     return true;
@@ -33,7 +24,8 @@ this.dbj.app = {
         }
         return this.trace_hide(newval);
     },
-    err_handler : dbj_hta_err_handler,
+
+    err_handler: window.onerror,
 
     fullpath : function (commandLine) {
         var cmdline_ = commandLine;
