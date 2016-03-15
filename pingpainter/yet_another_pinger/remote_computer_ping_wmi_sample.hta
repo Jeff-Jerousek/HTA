@@ -1,0 +1,161 @@
+<!-- DOCTYPE html / -->
+<html>
+<!--  Set document compatibility mode to IE8Mode  -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge" >
+<meta http-equiv="content-type" content="application/xhtml+xml; charset=iso-8859-1" >
+<!--- 
+ NAME: Ping Monitor
+ AUTHOR: DBJ@DBJ.ORG
+ COMMENT: "It is the mark of an educated mind to be able to entertain a thought without accepting it." -Aristotle
+--->
+<head>
+<hta:application
+	applicationname="PingMonitor"	
+	border="dialog"
+	borderstyle="normal"
+	caption="PingMonitor"
+	contextmenu="no"
+	icon="images\icon.ico"
+	maximizebutton="yes"
+	minimizebutton="yes"
+	navigable="yes"
+	scroll="no"
+	selection="no"
+	showintaskbar="yes"
+	singleinstance="yes"
+	sysmenu="yes"
+	version="1.0"
+	windowstate="normal"
+>
+<title>©</title>
+<style type="text/css" media="all" >
+@import url(https://fonts.googleapis.com/css?family=Ubuntu:400,700);
+* { font-family: 'Ubuntu', sans-serif;}
+#close_icon { position:fixed; top:1px; right:1px; font-size:72px; z-index:999; width:72px; height:72px; 
+              text-align:center; cursor:pointer;
+              border:0px; padding:0px; color:darksalmon; background-color:silver; }
+</style>
+
+</head>
+<body>
+<div id="content">
+<button id="close_icon" onclick="return window.close();" >&#935;</button>
+<div id="status" style="clear:both;">
+</div>
+</div>
+    <!------------------------------------------------------------------------------------------------------------------------>
+</body>
+<script type="text/javascript" id="dbj microlib (c) 2009-2016 by DBJ" >
+    "function"!=typeof String.format&&(String.prototype.format=function(){var a=arguments;return this.replace(/\{(\d|\d\d)\}/g,function(b){var c=1*b.match(/\d+/)[0];return void 0!==a[c]?a[c]:""===a[c]?"":b})}),this.dbj?alert("This file must be included first as it defines the root of dbj abstractions."):this.dbj={dummy:function(){var a=Object.prototype.toString;Object.prototype.hasOwnProperty;"function"!=typeof window.roleof&&(window.roleof=function(b){return a.call(b).match(/\w+/g)[1]}),"function"!=typeof window.isArray&&(window.isArray=function(a){return"Array"===roleof(a)}),"function"!=typeof window.isObject&&(window.isObject=function(a){return"Object"===roleof(a)})}(),sendRequest:function(url,callback,postData){var x,req=dbj.createXMLHTTPObject();if(req){var method=postData?"POST":"GET";req.open(method,url,!0),req.setRequestHeader("User-Agent","XMLHTTP/1.0"),postData&&req.setRequestHeader("Content-type","application/x-www-form-urlencoded"),req.onreadystatechange=function(){if(4==req.readyState){if(0!=req.status&&(200!=req.status||304!=req.status))return void alert("HTTP error "+(req.statusText||req.status));try{callback(eval("("+req.responseText+")"))}catch(x){alert("sendRequest(), JSON parse error: "+x+"\n\nURL:"+url+"\nText:\n"+req.responseText)}}},4!=req.readyState&&req.send(postData)}},XMLHttpFactories:[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}],createXMLHTTPObject:function(){for(var a=dbj.XMLHttpFactories.length;a--;)try{return dbj.XMLHttpFactories[a]()}catch(b){}return alert("dbj.createXMLHTTPObject() failed ?"),!1},$:function(a,b){return(b||document).querySelector(a)},$$:function(a,b){return(b||document).querySelectorAll(a)},later:function(a,b,c){var d=c?[].slice.call(arguments,3):[].slice.call(arguments,1);a||(a=this||window);var e=setTimeout(function(){clearTimeout(e),e=null,delete e;try{b.apply(a,d)}catch(c){throw"dbj.later() could not execute a function given. Exception was:"+c}},c||1)},nowlocal:function(){return(new Date).toLocaleTimeString()},print:function(a){var b=this.$("#status");return this.print=function(a){var c=document.createElement("LI");a=a||(b.innerHTML=""),b.appendChild(c);var d=setTimeout(function(){clearTimeout(d),d=null,c.setAttribute("style","font:12px/1.2 'Ubuntu',monospace"),c.innerHTML=a},0);return this},this.print(a)}};
+</script>
+    <!------------------------------------------------------------------------------------------------------------------------>
+<script type="text/javascript" >
+    /*
+    GPL (c) DBJ.ORG
+    */
+    var dbj_pinger = function (machine_name, printer_callback) {
+    var intMin = 3600, strUser, strPassword, strComputer = ".", /* "WS01" */strDomain = "HG235";
+
+    if (strComputer !== ".") {
+        strUser = prompt("Please enter your user name:"); ;
+        //var objPassword = new ActiveXObject("ScriptPW.Password");
+        strPassword = prompt("Please enter your password:");
+        dbj.print();
+    }
+
+    var objSWbemLocator = new ActiveXObject("WbemScripting.SWbemLocator"), objWMIService;
+    try {
+        objWMIService = objSWbemLocator.ConnectServer(strComputer,
+			"root\CIMV2",
+			strUser,
+			strPassword,
+			"MS_409",
+			"NTLMDomain:" + strDomain);
+    } catch (x) {
+        // try local machine
+        objWMIService = objSWbemLocator.ConnectServer(".");
+    }
+
+    function foreach(collection, method, context) {
+        for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
+            method.call((context || this), e.item());
+        }
+    }
+    var 
+    qry = ["SELECT * FROM Win32_PingStatus WHERE address='{0}' AND ResolveAddressNames='TRUE'", "SELECT * FROM Win32_IP4RouteTable"],
+    qry_idx = 0,
+    pings_status_message = {
+        "0": "Success", "11001": "Buffer Too Small", "11002": "Destination Net Unreachable", "11003": "Destination Host Unreachable",
+        "11004": "Destination Protocol Unreachable", "11005": "Destination Port Unreachable", "11006": "No Resources", "11007": "Bad Option",
+        "11008": "Hardware Error", "11009": "Packet Too Big", "11010": "Request Timed Out", "11011": "Bad Request", "11012": "Bad Route",
+        "11013": "TimeToLive Expired Transit", "11014": "TimeToLive Expired Reassembly", "11015": "Parameter Problem",
+        "11016": "Source Quench", "11017": "Option Too Big", "11018": "Bad Destination", "11032": "Negotiating IPSEC", "11050": "General Failure"
+    };
+
+    function pinger_status_message(intCode, give_code_too) {
+        return intCode != null ? pings_status_message[intCode] || (intCode + " Unknown ") : " No Status Code? ";
+    }
+
+        var template_qry = "<h2>Query : {0}</h2>",
+        template_status = "<h2>Status Code : {0}:{1}</h2>";
+
+    dbj_pinger = function (machine_name, printer_callback)
+    {
+        var the_qry = qry[qry_idx].format(machine_name),
+            colItems = objWMIService.ExecQuery(the_qry),
+            report = [];
+
+        report.push( template_qry.format(the_qry) );
+
+        foreach(colItems, function (objItem) {
+
+            if (qry_idx == 0) report.push(template_status.format( objItem.StatusCode , pinger_status_message(objItem.StatusCode)));
+
+            /*
+            report on all properties available
+            foreach(objItem.Properties_, function (prop) {
+                report.push(prop.Name + " : " + prop.Value + "\t");
+            });
+            */
+
+            report.push("");
+        });
+        printer_callback(report.join(""));
+    }
+    dbj_pinger( machine_name , printer_callback )
+};
+</script>
+<script type="text/javascript">
+    var main = function (undefined) {
+        /* */
+        var time_span = 10;
+        title = "DBJ*Ping by DBJ.ORG"; // .format(dbj.nowlocal()),
+            line = "------------------------------------------------------------------------";
+        document.title = title ;
+
+        dbj.print("<h1>{0}</h1>".format(title));
+        dbj.print("Please wait {0}".format("for ping's to timeout"));
+
+        dbj.sendRequest("pinger.cfg", function (config) {
+            for (var group_name in config.groups) {
+                dbj.print("<h1/>Group:{0}</h1> ".format(group_name));
+                var group = config.groups[group_name];
+                for (var L = group.hosts.length, j = 0; j < L; j++) {
+                    // dbj.later(window, dbj_pinger, time_span, group.hosts[j], dbj.print);
+                    dbj_pinger(group.hosts[j], dbj.print);
+                }
+            }
+        });
+
+        /* eof MAIN */
+    }
+    window.onload = function (undefined) {
+        try {
+            main();
+        } catch (x) {
+            alert(x + "\n\n" + (x.trace || ""));
+        }
+    }
+ </script>
+    <!------------------------------------------------------------------------------------------------------------------------>
+</html>
