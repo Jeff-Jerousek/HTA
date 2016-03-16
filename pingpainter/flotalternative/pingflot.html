@@ -24,16 +24,43 @@
 	</div>
 </body>
     <script type="text/javascript" src="../js/jquery.min.js"></script>
-    <script type="text/javascript" id="dbj_micro_lib" src="https://gist.githubusercontent.com/anonymous/83e3547c3cf508fad496/raw/6dd9e6cd7e98abb9022126daa2376e70eacaf5ee/app.min.js"></script>
+    <script type="text/javascript" src="dbj.microlib.min.js"></script>
 	<script type="text/javascript" src="jquery.flot.js"></script>
     <script type="text/javascript" src="jquery.flot.threshold.js"></script>
 	<script type="text/javascript" src="ping.js"></script>
 	<script type="text/javascript">
 
+	if ( ! dbj ) {
+	    alert("dbj must be an object at this point");
+		debugger;		
+	}
+
+    /**
+	  How many ticks can be squeezed in one milisecond on this machine?
+	  Is this a cludge or not I am not sure. It works in any case.
+	 */	
+	function tick_meter (max, rezult_cb) {
+
+	var t1 = (new Date()) - 0, timer = null, rez = [] ;
+
+	function tickpersec ( time_point  ) {
+		 rez.push(time_point - t1) ;
+		 if ( rez.length > max ) { clearTimeout(timer); timer = null ; 
+			  rezult_cb( parseInt( eval(rez.join("+")) / rez.length ) ); 
+		 }
+		 t1 = time_point;   
+	}
+
+	timer = setInterval( function () {
+			tickpersec.call( tick_meter, +(new Date())) ;
+	}, 1 );
+
+}
+
 /*
 * Called when all is well
 */
-function page_ready () {
+function page_ready ( tick_per_milisec_avg ) {
 
 
 	    var data = [], totalPoints = 300, data_pointer_ = 0 ,
@@ -42,20 +69,26 @@ function page_ready () {
 	            return data_pointer_ > totalPoints ? data_pointer_ = 0 : data_pointer_++;
 	        };
 
+			
+		/**
+		http://stackoverflow.com/questions/4959975/generate-random-value-between-two-numbers-in-javascript
+		*/
+		function randomIntFromInterval(min,max)
+		{
+			return Math.floor(Math.random()*(max-min+1)+min);
+		}
 		/* */
-		function createRandomData( max_y ) {
+		function createRandomData( min_y, max_y ) {
 
-		    var retval = [];
+		    var retval = [], prev = 0 ;
 		    retval[0] = parseInt(max_y / 2);
 			var y;
 			// Do a random walk
 			while (retval.length < totalPoints) {
-
-			    y = retval[retval.length - 1] + Math.random() * 10 - 5;
-
-			    y = dbj.keep_inside(y, [0, max_y]);
-
-				retval.push(y);
+			   prev = retval[retval.length - 1];
+			    // y = retval[retval.length - 1] + Math.random() * 10 - 5;
+				// y = dbj.keep_inside(y, [0, max_y]);
+				retval.push( randomIntFromInterval(min_y,max_y));
 			}
 
 			// index the generated y values with the x values
@@ -75,17 +108,13 @@ function page_ready () {
 		});
 
 		function createPlotWithOptions(d1, t) {
-		    return $.plot("#placeholder", [
-              {
-		        data: d1,
-		        color: "rgb(30, 180, 20)",
+		    return $.plot("#placeholder", [d1], // eof data 
+            {
+				color: "rgb(30, 180, 20)",
 		        threshold: {
 		            below: t,
 		            color: "rgb(200, 20, 30)"
-		        }
-              }
-		    ], // eof data 
-            {
+		        },
                 lines: {
                     steps: true
                 },
@@ -97,7 +126,7 @@ function page_ready () {
                     hoverable: false
                 },
                 yaxis: {
-                    min: 0, max: 100
+                    min: 350, max: 400
                 },
                 xaxis: { show: false }
             }  // eof options
@@ -107,21 +136,29 @@ function page_ready () {
 		
 		function update(data_index, last_ping_value ) {
 
+			last_ping_value = dbj.keep_inside(
+		    parseInt( 
+			last_ping_value / tick_per_milisec_avg ), // how many milsec is this
+			[350,400]
+			) ;
+			
 		    data[data_index] = [data_index, last_ping_value]; // create 2D point
-		    $("#ping_time").text("Ping : " + data[data_index].join(" * "));
-			plot.setData( data );
-			plot.setupGrid();
+		    $("#ping_time").text(
+					"Ping : {0}".format(data[data_index].join(" , time: "))
+			);
+			plot.setData( [data] );
+			// plot.setupGrid();
 			plot.draw();
 		}
 
 
 		var plot_timer = null ;
 		
-		var plot = createPlotWithOptions(data = createRandomData(100), 60);
+		var plot = createPlotWithOptions(data = createRandomData(350,400), 100);
 
-		start = function ( parent_element ) {
+		window.start = function (  ) {
 
-		    parent_element.innerText = "Stop";
+			$("#start_button").text("Stop");
 
             if ( plot_timer != null ) {
 				clearTimeout(plot_timer); plot_timer = null; return false;
@@ -138,15 +175,26 @@ function page_ready () {
 			updateInterval);
 		};
 		
+		$("#start_button")
+		        .off("click")
+                .click(function () { start( ); })
+                .text("Start");
+		
 		// Add the Flot version string to the footer
 		$("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
 	} ;
 
         //--------------------------------------
 		onload = function () {
-		    $("#start_button")
-                .onclick(function () { page_ready( this[0]); })
-                .text("Start");
+		
+		try {
+		    $("#start_button").text("Preparing...");
+			tick_meter( 10, function ( tpm_avg ) {
+						page_ready( tpm_avg );
+				});
+			} catch (x) {
+				dbj.print( dbj.err2str(x));
+			}
 		}
 
 </script>
