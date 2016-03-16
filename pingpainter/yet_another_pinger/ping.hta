@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Pishinger = Final + Pinger | &trade;	2016 DBJ.ORG</title>
+</head>
+<body>
+/** (c) 2016 by DBJ.ORG */
+<script type="text/javascript" src="ping.js"></script>
+<script type="text/javascript">
+onload = function (){
+	try {
+		var s = return_exec_result("ping -l 64 -n 10 -w 1 google.com"); //.split("Average")[1];
+	    document.body.appendChild(
+			 document.createTextNode("\n" + s)
+		   );
+	 } catch (x) {
+		alert(x+"");
+	 }
+}
+</script>
+</body>
+</html>
