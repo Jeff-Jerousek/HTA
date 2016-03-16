@@ -54,7 +54,7 @@ this.dbj.app = {
         dbj.app.shell = function (runarg) {
             if (isArray(runarg)) {
                 try {
-                    shell_(runarg[0], runarg[1] || 0, runarg[2] || false); // async run by default!
+                    shell_.Run(runarg[0], runarg[1] || 0, runarg[2] || false); // async run by default!
                 } catch (x) {
                     dbj.trace("dbj.app.shell() run failed with: " + dbj.err2str(x));
                 }
@@ -68,7 +68,7 @@ this.dbj.app = {
      *@param {number} miliseconds to wait
      */
     wait: function (milisecs) {
-        this.shell(["cmd /c ping localhost -n 1 - w " + (milisecs - 0), 0, true]);
+        this.shell(["cmd /c ping localhost -n 1 -w " + (milisecs - 0), 0, true]);
     }
 
 };
