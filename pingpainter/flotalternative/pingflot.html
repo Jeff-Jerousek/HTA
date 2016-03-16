@@ -9,18 +9,17 @@
 </head>
 <body>
 	<div id="header" class="bordered">
-		<h2>Flotinger = Flot + Pinger</h2>
-        <p id="start_button" class="bttn" >Waiting ...</p>
-		<p id="ping_time">Last ping response time: 0</p>
+		<h2 style="float:left;">Flotinger = Flot + Pinger</h2>
+        <p id="start_button" class="bttn" style="float:right;">Waiting ...</p>
+		<p id="ping_time" style="clear:both;"></p>
     </div>
-	<div id="content" class="demo-container bordered" >
-		<div id="placeholder" class="demo-container bordered"></div>
-		<p>You can update a chart periodically to get a real-time effect by using a timer to insert the new data in the plot and redraw it.</p>
+	<div id="content" class="demo-placeholder" >
+		<div id="placeholder" class="demo-container"></div>
 		<p>Remote thing to ping (IP or domain name): <input id="remote_adrs" type="text" value="http://orig01.deviantart.net/92d3/f/2010/110/7/2/pla_sf_3_by_recon071.jpg" style="text-align: left; width:100%"></p>
-		<p>Time between updates: <input id="updateInterval" type="text" value="" style="text-align: right; width:5em"> milliseconds</p>
+		<p>Time between updates: <input id="updateInterval" type="text" value="30" style="text-align: right; width:5em"> milliseconds</p>
 	</div>
 	<div id="footer" class="bordered">
-		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen
+		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen | Copyright &copy; 2016 DBJ.ORG
 	</div>
 </body>
     <script type="text/javascript" src="../js/jquery.min.js"></script>
@@ -67,9 +66,21 @@ function page_ready ( tick_per_milisec_avg ) {
 	        
 	        data_pointer = function () {
 	            return data_pointer_ > totalPoints ? data_pointer_ = 0 : data_pointer_++;
-	        };
+	        },
+	        	VERT = {
+	        		min: 490,
+	        		max: 510,
+	        		minmax: function (v) {
+	        			var mid = this.mid() ;
+	        			v = v - 0; // numberise
+	        			if (v < this.min) { this.min = v; this.max = mid + (mid - this.min); }
+	        			if (v > this.max) { this.max = v; this.min = mid - (this.max - mid); }
 
-			
+	        			return v;
+	        		},
+	        		mid:    function (  ) { return parseInt((this.min + this.max) / 2); },
+	        		toString () { return "min: {0}, max: {1}, mid {2}".format(this.min,this.max,this.mid()); }
+	        	};
 		/**
 		http://stackoverflow.com/questions/4959975/generate-random-value-between-two-numbers-in-javascript
 		*/
@@ -107,16 +118,22 @@ function page_ready ( tick_per_milisec_avg ) {
 			$(this).val("" + updateInterval);
 		});
 
-		function createPlotWithOptions(d1, t) {
-		    return $.plot("#placeholder", [d1], // eof data 
+		function createPlotWithOptions(lbl,d1, t) {
+			return $.plot("#placeholder", [
+				{
+					label: ""+lbl,
+					data: d1,
+					color: "red", // "rgb(30, 180, 20)",
+					threshold: {
+						below: t,
+						color: "green" //"rgb(200, 20, 30)"
+					}
+				}
+			], // eof data 
             {
-				color: "rgb(30, 180, 20)",
-		        threshold: {
-		            below: t,
-		            color: "rgb(200, 20, 30)"
-		        },
                 lines: {
-                    steps: true
+                	steps: true,
+					fill : false
                 },
                 series: {
                     shadowSize: 0,	// Drawing is faster without shadows
@@ -126,35 +143,34 @@ function page_ready ( tick_per_milisec_avg ) {
                     hoverable: false
                 },
                 yaxis: {
-                    min: 350, max: 400
+                    min: VERT.min, max: VERT.max
                 },
                 xaxis: { show: false }
             }  // eof options
             );
 		}
 
-		
 		function update(data_index, last_ping_value ) {
 
-			last_ping_value = dbj.keep_inside(
-		    parseInt( 
-			last_ping_value / tick_per_milisec_avg ), // how many milsec is this
-			[350,400]
-			) ;
+			var milisecs = parseInt(last_ping_value / tick_per_milisec_avg); // how many milsec is this
+			// update vertical min and max with last value obtained. later this will redraw the yaxis too
+			VERT.minmax(milisecs);
+			last_ping_value = dbj.keep_inside(milisecs,[ VERT.min, VERT.max]) ;
 			
-		    data[data_index] = [data_index, last_ping_value]; // create 2D point
-		    $("#ping_time").text(
-					"Ping : {0}".format(data[data_index].join(" , time: "))
-			);
-			plot.setData( [data] );
+		    data[data_index] = [data_index, last_ping_value]; // save it back to its 2D point
+//		    $("#ping_time").text(
+//					"Ping : {0}".format(data[data_index].join(" , time: "))
+//			);
+		    // plot.setData([data]);
+		    plot = createPlotWithOptions(last_ping_value, data, VERT.mid());
 			// plot.setupGrid();
-			plot.draw();
+			// plot.draw();
 		}
 
 
 		var plot_timer = null ;
 		
-		var plot = createPlotWithOptions(data = createRandomData(350,400), 100);
+		var plot = createPlotWithOptions("RND", data = createRandomData( VERT.min, VERT.max), VERT.mid());
 
 		window.start = function (  ) {
 
