@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Flotinger = Flot + Pinger</title>
+	<title>Pinglet&trade; &copy; DBJ.ORG</title>
 	<link href="examples.css" rel="stylesheet" type="text/css">
 </head>
 <body>
 	<div id="header" class="bordered">
-		<h2 style="float:left;"><span id="title_info" >Flotinger = Flot + Pinger</span></h2>
+		<h2 style="float:left;"><span id="title_info" >Pinglet&trade; = Ping + Piglet &copy; <a href="dbj.org" target="_blank">dbj.org</a></span></h2>
         <p id="start_button" class="bttn" style="float:right;margin-right:22px;">Waiting ...</p>
 		<p id="ping_time" style="clear:both;"></p>
     </div>
@@ -19,11 +19,12 @@
 		<p>Time between updates: <input id="updateInterval" type="text" value="30" style="text-align: right; width:5em"> milliseconds</p>
 	</div>
 	<div id="footer" class="bordered">
-		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen | Code in this page is Copyright &copy; 2016 by DBJ.ORG<br />
+		Code inside this page is Copyright &copy; 2016 by DBJ.ORG | Graph library is FLOT.
+		<br />
 		<a id="default_image" href="http://www.acooke.org/img/drawings/2005/mar/1/arms-10000.png" target="_blank">Very (very) large default image</a>
 	</div>
 <!--=======================================================================================================-->
-    <script type="text/javascript" src="../js/jquery.min.js"></script>
+	<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
 	<!-- there is an error in dbj.microlib, so we will have to revert back to uncompressed version to debug it
     <script type="text/javascript" src="dbj.microlib.min.js"></script>
 		-->
@@ -257,8 +258,6 @@ onload = (function () {
 }());
 
 </script>
-</body>
-</html>
 <!----------------------------------------------------
 	String.prototype.color = function (clr) {
 		return "<span style='color:" + clr + "!important;'>" + this + "</span>" ;
@@ -276,3 +275,5 @@ onload = (function () {
 			);
 	}
 ------------------------------------------------------->
+</body>
+</html>
