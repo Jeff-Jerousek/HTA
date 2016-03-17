@@ -9,114 +9,148 @@
 </head>
 <body>
 	<div id="header" class="bordered">
-		<h2 style="float:left;">Flotinger = Flot + Pinger</h2>
-        <p id="start_button" class="bttn" style="float:right;">Waiting ...</p>
+		<h2 style="float:left;"><span id="title_info" >Flotinger = Flot + Pinger</span></h2>
+        <p id="start_button" class="bttn" style="float:right;margin-right:22px;">Waiting ...</p>
 		<p id="ping_time" style="clear:both;"></p>
     </div>
 	<div id="content" class="demo-placeholder" >
 		<div id="placeholder" class="demo-container"></div>
-		<p>Remote thing to ping (IP or domain name): <input id="remote_adrs" type="text" value="http://orig01.deviantart.net/92d3/f/2010/110/7/2/pla_sf_3_by_recon071.jpg" style="text-align: left; width:100%"></p>
+		<p>Remote thing to ping (IP or domain name): <input id="remote_adrs" type="text" value="http://www.acooke.org/img/drawings/2005/mar/1/arms-10000.png" style="text-align: left; width:100%"></p>
 		<p>Time between updates: <input id="updateInterval" type="text" value="30" style="text-align: right; width:5em"> milliseconds</p>
 	</div>
 	<div id="footer" class="bordered">
-		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen | Copyright &copy; 2016 DBJ.ORG
+		Copyright &copy; 2007 - 2014 IOLA and Ole Laursen | Code in this page is Copyright &copy; 2016 by DBJ.ORG<br />
+		<a id="default_image" href="http://www.acooke.org/img/drawings/2005/mar/1/arms-10000.png" target="_blank">Very (very) large default image</a>
 	</div>
-</body>
+<!--=======================================================================================================-->
     <script type="text/javascript" src="../js/jquery.min.js"></script>
+	<!-- there is an error in dbj.microlib, so we will have to revert back to uncompressed version to debug it
     <script type="text/javascript" src="dbj.microlib.min.js"></script>
+		-->
+    <script type="text/javascript" src="dbj.microlib.js"></script>
+
 	<script type="text/javascript" src="jquery.flot.js"></script>
     <script type="text/javascript" src="jquery.flot.threshold.js"></script>
 	<script type="text/javascript" src="ping.js"></script>
-	<script type="text/javascript">
+	<script type="text/javascript" id="dbj_candidates">
 
 	if ( ! dbj ) {
 	    alert("dbj must be an object at this point");
 		debugger;		
 	}
+/**
+here we collect all candidates born here but considered for a
+move to dbj microlib suite of components
+*/
+	(function () {
 
-    /**
+		/**
+		Now this is positively evil ;)
+		*/
+		dbj.sumarr = function (arr) {
+			dbj.assert( arr.length < 0xFF ); // at least some sanity check
+			return dbj.evil(arr.join("+"));
+		}
+
+		dbj.avgarr = function (arr) {
+			dbj.assert(arr.length < 0xFF); // at least some sanity check
+			return dbj.sumarr(arr) / arr.length;
+		}
+	/**
 	  How many ticks can be squeezed in one milisecond on this machine?
 	  Is this a cludge or not I am not sure. It works in any case.
 	 */	
-	function tick_meter (max, rezult_cb) {
+	dbj.tick_meter = function tick_meter (callback,max) {
 
-	var t1 = (new Date()) - 0, timer = null, rez = [] ;
+		var t1 = (new Date()) - 0, timer = null, rez = [];
 
-	function tickpersec ( time_point  ) {
-		 rez.push(time_point - t1) ;
-		 if ( rez.length > max ) { clearTimeout(timer); timer = null ; 
-			  rezult_cb( parseInt( eval(rez.join("+")) / rez.length ) ); 
-		 }
-		 t1 = time_point;   
+		max = max || 10; // measure max times
+
+		function tickpersec ( time_point  ) {
+			if (rez.length == max) {
+				clearInterval(timer); timer = null;
+				callback(dbj.avgarr(rez));
+			}
+			rez.push(time_point - t1);
+			t1 = time_point;
+		}
+
+		timer = setInterval( function () {
+			tickpersec.call( tick_meter, +(new Date())) ;
+		}, 1);
+	};
+	/**
+	 generate set of 2D points [[x,y][x,y] , ... ] where x = 0 .. max_length, and y is generated
+	*/
+	dbj.create2Dset = function (max_length, y_generator) {
+		y_generator = y_generator || function () {return 0;}
+		var flat = [];
+		while (flat.length < max_length) flat.push([flat.length, y_generator()]);
+		return flat;
+	}
+	/** Pretty print an array. Examples:
+		This:		a2s( create2Dset(2,function () {return Math.random()*10;} ))
+		Produces:	"[0,3.1716830233219823][1,4.560661526384236]"
+		This:		a2s( create2Dset(2))
+		Produces:	[0,0][1,0]
+	*/
+	dbj.a2s = function ( a, mid ) { 
+		mid = mid || "][" ;
+		return "[" + a.join(mid) + "]" ; 
+	}
+	/**
+	http://stackoverflow.com/questions/4959975/generate-random-value-between-two-numbers-in-javascript
+	*/
+	dbj.random = function (min,max)
+	{
+		return Math.floor(Math.random()*(max-min+1)+min);
 	}
 
-	timer = setInterval( function () {
-			tickpersec.call( tick_meter, +(new Date())) ;
-	}, 1 );
+	/**
+	float round to desired number of dec places keepin the result type a float
+	default is 2 dec places
+	*/
+	dbj.round = function ( f, places ) {
+		return +f.toFixed(places || 2 ) ; 
+	}
 
-}
-
-/*
-* Called when all is well
+}()); // eof closure
+</script>
+<script type="text/javascript" id="main_page_script">
+/** 
+	Called when all is well
 */
 function page_ready ( tick_per_milisec_avg ) {
-
 
 	    var data = [], totalPoints = 300, data_pointer_ = 0 ,
 	        
 	        data_pointer = function () {
 	            return data_pointer_ > totalPoints ? data_pointer_ = 0 : data_pointer_++;
 	        },
-	        	VERT = {
-	        		min: 490,
-	        		max: 510,
-	        		minmax: function (v) {
-	        			var mid = this.mid() ;
-	        			v = v - 0; // numberise
-	        			if (v < this.min) { this.min = v; this.max = mid + (mid - this.min); }
-	        			if (v > this.max) { this.max = v; this.min = mid - (this.max - mid); }
+/**
+PDA = Ping Data Accumulator
+*/
+	PDA = {
+	    min: 0,
+	    max: 0,
+	    set: function (v) {
+	        v = v - 0; // numberise
+	        	if (v < this.min) { this.min = v; }
+	        	if (v > this.max) { this.max = v; }
+	        return v;
+	    },
+	    mid:    function (  ) { return (this.min + this.max) / 2.0 ; },
+	    toString () {
+	    	var R = function(n,c) { return "<span style='color:" + c + "!important;' >"+ dbj.round(n) + "</span>"; };
+	    	return "min: {0}, max: {1}, mid {2}".format(
+				R(this.min,"green"),
+				R(this.max, "red" ),
+				R(this.mid(), "inherit")
+				);
+	    }
+	};
 
-	        			return v;
-	        		},
-	        		mid:    function (  ) { return parseInt((this.min + this.max) / 2); },
-	        		toString () { return "min: {0}, max: {1}, mid {2}".format(this.min,this.max,this.mid()); }
-	        	};
-		/**
-		http://stackoverflow.com/questions/4959975/generate-random-value-between-two-numbers-in-javascript
-		*/
-		function randomIntFromInterval(min,max)
-		{
-			return Math.floor(Math.random()*(max-min+1)+min);
-		}
 		/* */
-		function createRandomData( min_y, max_y ) {
-
-		    var retval = [], prev = 0 ;
-		    retval[0] = parseInt(max_y / 2);
-			var y;
-			// Do a random walk
-			while (retval.length < totalPoints) {
-			   prev = retval[retval.length - 1];
-			    // y = retval[retval.length - 1] + Math.random() * 10 - 5;
-				// y = dbj.keep_inside(y, [0, max_y]);
-				retval.push( randomIntFromInterval(min_y,max_y));
-			}
-
-			// index the generated y values with the x values
-			for (var x = 0; x < retval.length; ++x) {
-			    retval[x] = [x, retval[x]];
-			}
-			    return retval; 
-		}
-		/* */
-
-		// Set up the control widget
-		var updateInterval = 30;
-		$("#updateInterval").val(updateInterval).change(function () {
-			var v = $(this).val();
-				updateInterval = dbj.keep_inside(v, [1, 2000]);
-			$(this).val("" + updateInterval);
-		});
 
 		function createPlotWithOptions(lbl,d1, t) {
 			return $.plot("#placeholder", [
@@ -142,76 +176,103 @@ function page_ready ( tick_per_milisec_avg ) {
                     clickable: false,
                     hoverable: false
                 },
-                yaxis: {
-                    min: VERT.min, max: VERT.max
-                },
+                /* yaxis: {
+                    min: PDA.min, max: PDA.max
+                }, */
                 xaxis: { show: false }
             }  // eof options
             );
 		}
 
-		function update(data_index, last_ping_value ) {
+	/**
+	A callback called from ping routine, when it is finished with a single 'pinglet'
+	this is not a real ICMP PING so we call it 'pinglet'
+	@param {number} data_index we do not need to pass through here , we do it to avoid outer scope variables
+	@param {number} last_ping_value is number of ticks as a 'pinglet' measurement result
+	*/
+		$title_info = $("#title_info");
 
+		function update(data_index, last_ping_value ) {
 			var milisecs = parseInt(last_ping_value / tick_per_milisec_avg); // how many milsec is this
-			// update vertical min and max with last value obtained. later this will redraw the yaxis too
-			VERT.minmax(milisecs);
-			last_ping_value = dbj.keep_inside(milisecs,[ VERT.min, VERT.max]) ;
-			
-		    data[data_index] = [data_index, last_ping_value]; // save it back to its 2D point
-//		    $("#ping_time").text(
-//					"Ping : {0}".format(data[data_index].join(" , time: "))
-//			);
-		    // plot.setData([data]);
-		    plot = createPlotWithOptions(last_ping_value, data, VERT.mid());
+			data[data_index] = [data_index, milisecs]; // save it back to its 2D point
+			PDA.set(milisecs); // adjust min max y values
+			$title_info.html(PDA.toString());
+			plot = createPlotWithOptions(milisecs, data, parseInt(PDA.mid()));
+			// plot.setData([data]);
 			// plot.setupGrid();
-			// plot.draw();
 		}
 
+	// initialise the 2D set of total points
+	// this is important since the data_pointer() depends on this set length
+	// to be == totalPoints
+		data = dbj.create2Dset(totalPoints);
+    	// but ... do we actually need to do this inital drawing?
+		var plot = createPlotWithOptions("FLAT", data, 0);
+		var plot_timer = null;
 
-		var plot_timer = null ;
-		
-		var plot = createPlotWithOptions("RND", data = createRandomData( VERT.min, VERT.max), VERT.mid());
+		var $start_button = $("#start_button");
 
-		window.start = function (  ) {
+		$start_button.off("click").click( function start () {
 
-			$("#start_button").text("Stop");
+			var interval = $("#updateInterval").val() || 50 ;
+			var remote = $("#remote_adrs").val() || $("#default_image").attr("href");
+
+			$start_button.text("Stop");
 
             if ( plot_timer != null ) {
-				clearTimeout(plot_timer); plot_timer = null; return false;
-				parent_element.innerText = "Start";
-            }
+				clearInterval(plot_timer); plot_timer = null; 
+				$start_button.text("Start");
+				return false;
+            } 
 
-			var remote = $("#remote_adrs").val();
-
+			PDA.min = 0xFFFF; //?
+			PDA.max = 0;      //?
 			plot_timer = setInterval(
 			function (){
 					collect_ping_data(remote, data_pointer(), update )
-				
 		    }, 
-			updateInterval);
-		};
-		
-		$("#start_button")
-		        .off("click")
-                .click(function () { start( ); })
-                .text("Start");
-		
-		// Add the Flot version string to the footer
-		$("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
+			interval);
+		});
 	} ;
 
-        //--------------------------------------
-		onload = function () {
-		
+//--------------------------------------
+onload = (function () {
+
+	// Add the Flot version string to the footer
+	$("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
+	// Set up the control widget
+	var updateInterval = 30;
+	$("#updateInterval").val(updateInterval).change(function () {
+		var v = $(this).val();
+		updateInterval = dbj.keep_inside(v, [10, 2000]);
+		$(this).val("" + updateInterval);
+	});
+	return function () {
 		try {
-		    $("#start_button").text("Preparing...");
-			tick_meter( 10, function ( tpm_avg ) {
-						page_ready( tpm_avg );
-				});
-			} catch (x) {
-				dbj.print( dbj.err2str(x));
-			}
+				dbj.tick_meter(page_ready);
+		} catch (x) {
+				dbj.print(dbj.err2str(x));
 		}
+	}
+}());
 
 </script>
+</body>
 </html>
+<!----------------------------------------------------
+	String.prototype.color = function (clr) {
+		return "<span style='color:" + clr + "!important;'>" + this + "</span>" ;
+	}
+	String.prototype.red = function () {
+		return this.color("red") ;
+	}
+	String.prototype.green = function () {
+		return this.color("green") ;
+	}
+	function createRandomData( max_length, min_y, max_y ) {
+		var generator = dbj.random;
+		dbj.create2Dset(max_length,
+			function () { return generator(min_y, max_y); }
+			);
+	}
+------------------------------------------------------->
