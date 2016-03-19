@@ -25,38 +25,18 @@
 	</div>
 <!--=======================================================================================================-->
 	<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
-	<!-- there is an error in dbj.microlib, so we will have to revert back to uncompressed version to debug it
     <script type="text/javascript" src="dbj.microlib.min.js"></script>
-		-->
-    <script type="text/javascript" src="dbj.microlib.js"></script>
-
 	<script type="text/javascript" src="jquery.flot.js"></script>
     <script type="text/javascript" src="jquery.flot.threshold.js"></script>
 	<script type="text/javascript" src="ping.js"></script>
 	<script type="text/javascript" id="dbj_candidates">
 
-	if ( ! dbj ) {
-	    alert("dbj must be an object at this point");
-		debugger;		
-	}
 /**
 here we collect all candidates born here but considered for a
 move to dbj microlib suite of components
 */
 	(function () {
 
-		/**
-		Now this is positively evil ;)
-		*/
-		dbj.sumarr = function (arr) {
-			dbj.assert( arr.length < 0xFF ); // at least some sanity check
-			return dbj.evil(arr.join("+"));
-		}
-
-		dbj.avgarr = function (arr) {
-			dbj.assert(arr.length < 0xFF); // at least some sanity check
-			return dbj.sumarr(arr) / arr.length;
-		}
 	/**
 	  How many ticks can be squeezed in one milisecond on this machine?
 	  Is this a cludge or not I am not sure. It works in any case.
@@ -70,7 +50,7 @@ move to dbj microlib suite of components
 		function tickpersec ( time_point  ) {
 			if (rez.length == max) {
 				clearInterval(timer); timer = null;
-				callback(dbj.avgarr(rez));
+				callback(dbj.avg(rez));
 			}
 			rez.push(time_point - t1);
 			t1 = time_point;
@@ -88,31 +68,6 @@ move to dbj microlib suite of components
 		var flat = [];
 		while (flat.length < max_length) flat.push([flat.length, y_generator()]);
 		return flat;
-	}
-	/** Pretty print an array. Examples:
-		This:		a2s( create2Dset(2,function () {return Math.random()*10;} ))
-		Produces:	"[0,3.1716830233219823][1,4.560661526384236]"
-		This:		a2s( create2Dset(2))
-		Produces:	[0,0][1,0]
-	*/
-	dbj.a2s = function ( a, mid ) { 
-		mid = mid || "][" ;
-		return "[" + a.join(mid) + "]" ; 
-	}
-	/**
-	http://stackoverflow.com/questions/4959975/generate-random-value-between-two-numbers-in-javascript
-	*/
-	dbj.random = function (min,max)
-	{
-		return Math.floor(Math.random()*(max-min+1)+min);
-	}
-
-	/**
-	float round to desired number of dec places keepin the result type a float
-	default is 2 dec places
-	*/
-	dbj.round = function ( f, places ) {
-		return +f.toFixed(places || 2 ) ; 
 	}
 
 }()); // eof closure

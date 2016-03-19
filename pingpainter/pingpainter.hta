@@ -1,24 +1,6 @@
 <html>
 <script type="text/javascript" id="dbj_microlib" >
-!function(r,t){if("object"==typeof o){var e="dbj core object must be defined only once and only in here"
-return console&&console.error&&console.error(e),"function"==typeof alert&&alert(e),t}"function"!=typeof String.format&&(String.prototype.format=function(){var r=arguments
-return this.replace(/\{(\d|\d\d)\}/g,function(e){var n=1*e.match(/\d+/)[0]
-return r[n]!==t?r[n]:""===r[n]?"":e})})
-var n=Object.prototype.toString,o=(Object.prototype.hasOwnProperty,{GLOBAL:function(){"function"!=typeof r.roleof&&(r.roleof=function(r){return n.call(r).match(/\w+/g)[1]}),"function"!=typeof r.isArray&&(r.isArray=function(r){return"Array"===roleof(r)}),"function"!=typeof r.isObject&&(r.isObject=function(r){return"Object"===roleof(r)}),"function"!=typeof r.isFunction&&(r.isObject=function(r){return"Function"===roleof(r)})}(),keep_inside:function(){var r=[0,1]
-return function(t,e){if(e&&(r=e.sort()),t-=0,isNaN(t))throw Error(255,"dbj.keep_inside() received NaN value.")
-return t>r[1]?r[1]:t<r[0]?r[0]:t}}(),err2str:function(r){return"Error"!=roleof(r)?""+r:"Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(65535&r.number,r.number>>16&8191,r.message,r.name)},createXHR:function(){var r=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}]
-return o.createXHR=function(){for(var t=r.length;t--;)try{return r[t]()}catch(e){}throw"dbj.createXMLHTTPObject() failed ?"},o.createXHR()},$:function(r,t){return(t||document).querySelector(r)},$$:function(r,t){return(t||document).querySelectorAll(r)},later:function(r,t,e){var n=e?[].slice.call(arguments,3):[].slice.call(arguments,1)
-r||(r=this||window)
-var o=setTimeout(function(){clearTimeout(o),o=null,delete o
-try{t.apply(r,n)}catch(e){throw e.message}},e||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(r){if(!r)throw o.later(o,function(){var t=console?console.error:alert
-t("dbj.assert failed for: "+r+", msg: "+r.message)}),Error(255,"dbj.assert("+r+"), rendered to false")},print:function(){var r=[].slice.call(arguments)
-o.later(o,function(){this.console.group()
-for(var t=0;t<r.length;t++)console.log(r[t])
-this.console.group_end()})},evil:function(r){"use strict"
-var t="evil_"+ +new Date
-return function(r){return(1,eval)("top['"+t+"'] = ("+r+")"),top[t]}}(),num:function(r){return r-0},round:function(r,t){var e=Math.pow(10,t),n=r*e,o=Math.round(n)
-return o/e},toUint32:function(r){return r>>>0},toInt32:function(r){return r>>0},seed:function(){return Math.random()*(new Date-0)>>>0}}),u={empty:"00000000-0000-0000-0000-000000000000",make:function(){return u.four()+u.four()+"-"+u.four()+"-"+u.four()+"-"+u.four()+"-"+u.four()+u.four()+u.four()},four:function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()}}
-o.GUID=function(){return u.make()}}(this);
+!function(t,n){if("object"==typeof dbj){var r="dbj core object must be defined only once and only in here";return console&&console.error&&console.error(r),void("function"==typeof alert&&alert(r))}if("function"==typeof printf)return alert("dbj MICROLIB want to create global printf()\n\nPlease rename it or simply remove it from inside dbj.microlib.js.");!function(){var t=(new Date).toLocaleString()+"\n";printf=function(t){var n=[].slice.call(arguments);return printf.target(n.join("\n")),printf};var n=function(){return printf.element.innerText+=t,t="",printf};printf.flush=n,printf.target=function(r){t+="\n"+r,t.length>65535&&n()},printf.element=document.body}(),"function"!=typeof String.format&&(String.prototype.format=function(){var t=arguments;return this.replace(/\{(\d|\d\d)\}/g,function(r){var e=1*r.match(/\d+/)[0];return t[e]!==n?t[e]:""===t[e]?"":r})});var e=Object.prototype.toString;Object.prototype.hasOwnProperty;t.dbj={GLOBAL:function(){"function"!=typeof t.roleof&&(t.roleof=function(t){return e.call(t).match(/\w+/g)[1]}),"function"!=typeof t.isArray&&(t.isArray=function(t){return"Array"===roleof(t)}),"function"!=typeof t.isObject&&(t.isObject=function(t){return"Object"===roleof(t)}),"function"!=typeof t.isFunction&&(t.isObject=function(t){return"Function"===roleof(t)})}(),keep_inside:function(t,n){var r=n?n.sort():[0,1];if(t-=0,isNaN(t))throw new Error(255,"dbj.keep_inside() received NaN value.");return t>r[1]?r[1]:t<r[0]?r[0]:t},err2str:function(t){return"Error"!=roleof(t)?""+t:"Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(65535&t.number,t.number>>16&8191,t.message,t.name)},createXHR:function(){var t=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}];return this.createXHR=function(){for(var n=t.length;n--;)try{return t[n]()}catch(r){}throw"dbj.createXMLHTTPObject() failed ?"},this.createXHR()},$:function(t,n){return(n||document).querySelector(t)},$$:function(t,n){return(n||document).querySelectorAll(t)},later:function(t,n,r){var e=r?[].slice.call(arguments,3):[].slice.call(arguments,1);t||(t=this||window);var o=setTimeout(function(){clearTimeout(o),o=null,delete o;try{n.apply(t,e)}catch(r){throw r.message}},r||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(t){if(!t)throw new Error(255,"dbj.assert("+t+"), rendered to false")},print:function(){if(!console)throw new Error(255,"dbj.print() -- console does not exist?");var t=[].slice.call(arguments);this.console.group();for(var n=0;n<t.length;n++)console.log(t[n]);this.console.group_end()},evil:function(t){"use strict";var n="evil_"+ +new Date;return this.evil=function(t){return(1,eval)("window['"+n+"'] = ("+t+")"),top[n]},this.evil(t)},num:function(t){return t-0},round:function(t,n){return+t.toFixed(n||2)},a2s:function(t,n){return n=n||"][","["+t.join(n)+"]"},random:function(t,n){return Math.floor(Math.random()*(n-t+1)+t)},toUint32:function(t){return t>>>0},toInt32:function(t){return t>>0},seed:function(){return Math.random()*(new Date-0)>>>0},sum:function(t){return this.assert(t.length<255),dbj.evil(t.join("+"))},avg:function(t){return this.assert(t.length<255),this.sum(t)/t.length},GUID:function(){var t=function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()};return this.GUID=function(){return t()+t()+"-"+t()+"-"+t()+"-"+t()+"-"+t()+t()+t()},this.GUID()}}}(this||window);
 </script>
 <head>
 <!-- meta http-equiv="X-UA-Compatible" content="IE=edge" -->
@@ -115,9 +97,9 @@ $.when(
 	).done (
 	 function () { 
 	 
-	 alert("All scripts loaded");
+	 var DBJAPP = null ;
 
-	var _main = function (doc_obj) {
+	 var _main = function (doc_obj) {
 		$("#dbj_pingpainter").css("display","initial");
 			var ip_to_ping	=	DBJAPP.cfg.remote		|| "4.2.2.1",
 				interval	=   DBJAPP.cfg.frequency	|| 5000,
@@ -130,22 +112,10 @@ $.when(
 			}, interval);
 	};
 	try {
-		var DBJAPP = HTAAPP(dbj_ping_hta);
+		DBJAPP = HTAAPP(dbj_ping_hta);
 		window.resizeTo(350, 400);
 				_main(window.document);
 	} catch (x) {
-	
-	var err2str = function (e) {if (roleof(e) != "Error") return ""+e;
-    return "Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(
-			e.number & 0xFFFF,
-			e.number >> 16 & 0x1FFF,
-			e.message,
-			e.name
-		);
-    };
-	       alert( err2str(x)); debugger ; return false;
-		   
-		   
 	   var wmierr = dbj.wmi.err();
 		dbj.print(
 		"Exception : {0} {1}".format(

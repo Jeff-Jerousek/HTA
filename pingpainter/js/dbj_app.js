@@ -90,8 +90,7 @@ var htautl = {
 HTAAPP = function (hta_app) {
 
 	if (! htautl.isHTA(hta_app)) {
-			alert("Whoa pardner, this is not an HTA APP?");
-			debugger;
+	   throw ("Whoa pardner, this is not an HTA APP?");
 	}
 
 	var fullpathname = htautl.fullpath(hta_app);
@@ -116,8 +115,7 @@ HTAAPP = function (hta_app) {
                  xhttp.statusText,
                  xhttp.readyState
                 );
-            alert(retval.error);
-			debugger;
+            throw(retval.error);
         }
             return retval; 
     };
@@ -126,8 +124,7 @@ HTAAPP = function (hta_app) {
 	try {
 				txt_stream = text_stream(logfilename, false); // keep the previous log
 	} catch(x) {
-        alert ("Error whil creaitng text stream for {0}, {1}:".format( logfilename, dbj.err2str(x)));
-			debugger;
+        throw("Error whil creaitng text stream for {0}, {1}:".format( logfilename, dbj.err2str(x)));
 	}
 
     var keeper_ = {
@@ -138,8 +135,7 @@ HTAAPP = function (hta_app) {
         			try {
         				txt_stream.write(new Date().toLocaleTimeString() + " -- " + s_);
         			} catch (x) {
-        				alert ("Exception in the APP.log():" + dbj.err2str(x));
-						debugger;
+        				throw ("Exception in the APP.log():" + dbj.err2str(x));
         }
     }};
 
