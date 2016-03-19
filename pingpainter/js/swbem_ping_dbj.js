@@ -1,8 +1,12 @@
-﻿this.dbj || (this.dbj = {});
+﻿; (function ( GLOBAL, undefined ) {
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
+if ("undefined" == typeof dbj) {
+	alert("Whoa pardner! Where is your dbj?!");
+	return ;
+}
 
-this.dbj.wmi = {};
+dbj.wmi = {};
 
-; (function () {
 
     dbj.wmi.err  = function last_wmi_error () {
     try {
@@ -28,7 +32,7 @@ this.dbj.wmi = {};
 }
 // 
 // 
-function swbem_service(server_, output_cb ) {
+var swbem_service = function (server_, output_cb ) {
     server_ = server_ || ".";
 
     var locator = new ActiveXObject("WbemScripting.SWbemLocator");
@@ -102,4 +106,4 @@ dbj.wmi.ping = function single_ping(ip_address, output_cb)
     return retval;
 }; // eof single ping
 
-}()); // eof closure
+}( this || window )); // eof closure

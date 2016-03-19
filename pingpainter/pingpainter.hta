@@ -1,27 +1,49 @@
-<!DOCTYPE html>
-<html  lang="en">
+<html>
+<script type="text/javascript" id="dbj_microlib" >
+!function(r,t){if("object"==typeof o){var e="dbj core object must be defined only once and only in here"
+return console&&console.error&&console.error(e),"function"==typeof alert&&alert(e),t}"function"!=typeof String.format&&(String.prototype.format=function(){var r=arguments
+return this.replace(/\{(\d|\d\d)\}/g,function(e){var n=1*e.match(/\d+/)[0]
+return r[n]!==t?r[n]:""===r[n]?"":e})})
+var n=Object.prototype.toString,o=(Object.prototype.hasOwnProperty,{GLOBAL:function(){"function"!=typeof r.roleof&&(r.roleof=function(r){return n.call(r).match(/\w+/g)[1]}),"function"!=typeof r.isArray&&(r.isArray=function(r){return"Array"===roleof(r)}),"function"!=typeof r.isObject&&(r.isObject=function(r){return"Object"===roleof(r)}),"function"!=typeof r.isFunction&&(r.isObject=function(r){return"Function"===roleof(r)})}(),keep_inside:function(){var r=[0,1]
+return function(t,e){if(e&&(r=e.sort()),t-=0,isNaN(t))throw Error(255,"dbj.keep_inside() received NaN value.")
+return t>r[1]?r[1]:t<r[0]?r[0]:t}}(),err2str:function(r){return"Error"!=roleof(r)?""+r:"Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(65535&r.number,r.number>>16&8191,r.message,r.name)},createXHR:function(){var r=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}]
+return o.createXHR=function(){for(var t=r.length;t--;)try{return r[t]()}catch(e){}throw"dbj.createXMLHTTPObject() failed ?"},o.createXHR()},$:function(r,t){return(t||document).querySelector(r)},$$:function(r,t){return(t||document).querySelectorAll(r)},later:function(r,t,e){var n=e?[].slice.call(arguments,3):[].slice.call(arguments,1)
+r||(r=this||window)
+var o=setTimeout(function(){clearTimeout(o),o=null,delete o
+try{t.apply(r,n)}catch(e){throw e.message}},e||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(r){if(!r)throw o.later(o,function(){var t=console?console.error:alert
+t("dbj.assert failed for: "+r+", msg: "+r.message)}),Error(255,"dbj.assert("+r+"), rendered to false")},print:function(){var r=[].slice.call(arguments)
+o.later(o,function(){this.console.group()
+for(var t=0;t<r.length;t++)console.log(r[t])
+this.console.group_end()})},evil:function(r){"use strict"
+var t="evil_"+ +new Date
+return function(r){return(1,eval)("top['"+t+"'] = ("+r+")"),top[t]}}(),num:function(r){return r-0},round:function(r,t){var e=Math.pow(10,t),n=r*e,o=Math.round(n)
+return o/e},toUint32:function(r){return r>>>0},toInt32:function(r){return r>>0},seed:function(){return Math.random()*(new Date-0)>>>0}}),u={empty:"00000000-0000-0000-0000-000000000000",make:function(){return u.four()+u.four()+"-"+u.four()+"-"+u.four()+"-"+u.four()+"-"+u.four()+u.four()+u.four()},four:function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()}}
+o.GUID=function(){return u.make()}}(this);
+</script>
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <title>dbj*PINGPAINTER</title>
-    
+<!-- meta http-equiv="X-UA-Compatible" content="IE=edge" -->
+<!-- meta name="viewport" content="width=device-width, initial-scale=1" -->
+<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+<meta name="vs_targetSchema" content="http://schemas.microsoft.com/intellisense/ie5" />
+<meta http-equiv="Content-Type" content="text/html; charset=Windows-1252" />
+<title>dbj*PINGPAINTER</title>
+  
 <HTA:APPLICATION
-  APPLICATIONNAME="dbj-ping-state"
+  APPLICATIONNAME="dbj-ping-painter"
   ID="dbj_ping_hta"
-  VERSION="0.5"
+  VERSION="1.5"
   BORDER="dialog"
   BORDERSTYLE="static"
   INNERBORDER="no"
-  ICON="media/appview.ico"
+  ICON="favicon.ico"
   SCROLL="no"
   SCROLLFLAT="yes"
   SINGLEINSTANCE="yes"
   CONTEXTMENU="no"
   SELECTION="no"/>
   
-  <style>
+  <style type="text/css">
+  /*<![CDATA[*/
   .centerer {
 	  display: flex;
 	  align-items: center;
@@ -63,68 +85,79 @@
      margin:1px;
 	 position: relative; top:-45px; left:0px;
   }
-
+/*]]>*/
 </style>
 </head>
 <!-- https://msdn.microsoft.com/library/windows/apps/hh701658 -->
 <!-- object id="appview" runat="server" class="Windows.UI.ViewManagement.ApplicationView" ></object -->
-<body noscroll class="centerer">
-<!---------------------------------------------------------------------------------->	
+<!--|||||||||||||||||||||||||||||||||||||||||||||||||-->	
+<body class="centerer">
 <div id="dbj_pingpainter"   class="centerer">
 	<div id="pingrezult" 	class="centerer status_tile"></div>
-	<img class="waiter"     src="./media/giphy.gif" />
+	<img class="waiter"     src="./media/giphy.gif" alt="Cute boy waiting forever" />
 	<p id="title_"  >dbj*pingPAINTER &copy; 2016 by DBJ.SYSTEMS</p>
 </div>
-<script id="page_script">
-    //----------------------------------------------------------------------------------
-    this.DBJAPP = null;
-this.onload = function () {
-
-    dbj_main = function () {
-        try {
-
-           // debugger;
-            DBJAPP = dbj.APP(dbj_ping_hta);
-
-            dbj_pingpainter.display = "initial";
-		
-
-                var ip_to_ping = "8.8.8.8", interval = 5000 ;
-
-                document.title = ip_to_ping + " | " + (new Date()).toLocaleString() + " | " + title_.innerText;
-
-                ping_paint(ip_to_ping, dbj.trace, document.getElementById("pingrezult"));
-
-                var tid = setInterval(function () {
-                    ping_paint(ip_to_ping);
-                }, interval);
-            } catch (x) {
-
-			var wmierr = dbj.wmi.err() ;
-
-                dbj.print(
-                "Exception : {0} {1}".format(
-                       dbj.err2str(x),
-                       (wmierr ? "WMI ERROR:" + wmierr : "")
-                    )
-                    );
-            }
-        }
-
-    window.resizeTo(350,400);
-
-	dbj_main();
-}
-
-</script>
+<!--|||||||||||||||||||||||||||||||||||||||||||||||||-->	
 <!-- Placed at the end of the document so the pages loads faster -->
-<script src="js/jquery.min.js"></script>
-<script id="dbj_microlib_script">
-"function"!=typeof String.format&&(String.prototype.format=function(){var t=arguments;return this.replace(/\{(\d|\d\d)\}/g,function(n){var r=1*n.match(/\d+/)[0];return void 0!==t[r]?t[r]:""===t[r]?"":n})});var dbj={GLOBAL:function(){var t=Object.prototype.toString;Object.prototype.hasOwnProperty;"function"!=typeof window.roleof&&(window.roleof=function(n){return t.call(n).match(/\w+/g)[1]}),"function"!=typeof window.isArray&&(window.isArray=function(t){return"Array"===roleof(t)}),"function"!=typeof window.isObject&&(window.isObject=function(t){return"Object"===roleof(t)}),"function"!=typeof window.isFunction&&(window.isObject=function(t){return"Function"===roleof(t)})}(),try_calling_nicely:function(){try{var t=1===arguments.length?[arguments[0]]:Array.apply(null,arguments),n=t[0],r=t[1];return r.apply(n,t.slice(2))}catch(e){return e.message}},createXHR:function(){var t=[function(){return new XMLHttpRequest},function(){return new ActiveXObject("Msxml2.XMLHTTP")},function(){return new ActiveXObject("Msxml3.XMLHTTP")},function(){return new ActiveXObject("Microsoft.XMLHTTP")}];return dbj.createXHR=function(){for(var n=t.length;n--;)try{return t[n]()}catch(r){}return alert("dbj.createXMLHTTPObject() failed ?"),!1},dbj.createXHR()},$:function(t,n){return(n||document).querySelector(t)},$$:function(t,n){return(n||document).querySelectorAll(t)},later:function(t,n,r){var e=r?[].slice.call(arguments,3):[].slice.call(arguments,1);t||(t=this||window);var o=setTimeout(function(){clearTimeout(o),o=null,delete o;try{n.apply(t,e)}catch(r){throw r.message}},r||1)},console:{group:function(){console.group("dbj MICROLIB")},group_end:function(){console.groupEnd()}},assert:function(t,n){if(!t)throw dbj.later(dbj,function(){this.console.group(),console.err("dbj.assert failed for: "+t+", msg: "+t.message),this.console.group_end()}),"dbj.assert failed for: "+t},print:function(t,n){dbj.later(dbj,function(){n&&this.console.group(),console.log(t),n&&this.console.group_end()})},evil:function(){"use strict";var t="evil_"+ +new Date;return function(n){return(1,eval)("top['"+t+"'] = ("+n+")"),top[t]}}(),num:function(t){return t-0},round:function(t,n){var r=Math.pow(10,n),e=t*r,o=Math.round(e);return o/r},toUint32:function(t){return t>>>0},toInt32:function(t){return t>>0},seed:function(){return Math.random()*(new Date-0)>>>0}};!function(){var t={empty:"00000000-0000-0000-0000-000000000000",make:function(){return t.four()+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+"-"+t.four()+t.four()+t.four()},four:function(){return(65536*(1+Math.random())|0).toString(16).substring(1).toUpperCase()}};dbj.GUID=function(){return t.make()}}();
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<!--
+<script src="js/swbem_ping_dbj.js" type="text/javascript"></script>
+<script src="js/dbj_app.js" type="text/javascript"></script>
+<script src="js/pingpainter_dbj.js" type="text/javascript"></script>
+-->
+<script type="text/javascript" id="page_script" >
+//------------------------------------------------------
+$(function () {
+$.when(
+		$.getScript("js/swbem_ping_dbj.js"),
+		$.getScript("js/dbj_app.js"),
+		$.getScript("js/pingpainter_dbj.js")
+	).done (
+	 function () { 
+	 
+	 alert("All scripts loaded");
+
+	var _main = function (doc_obj) {
+		$("#dbj_pingpainter").css("display","initial");
+			var ip_to_ping	=	DBJAPP.cfg.remote		|| "4.2.2.1",
+				interval	=   DBJAPP.cfg.frequency	|| 5000,
+				caption		=	"{0} | {1} | {2}".format(ip_to_ping,(new Date()).toLocaleString(),$("#title_").text());
+			doc_obj.title = caption;
+			dbj.trace(caption);
+						ping_paint(ip_to_ping, dbj.trace, $("#pingrezult"));
+			var tid = setInterval(function () {
+					ping_paint(ip_to_ping);
+			}, interval);
+	};
+	try {
+		var DBJAPP = HTAAPP(dbj_ping_hta);
+		window.resizeTo(350, 400);
+				_main(window.document);
+	} catch (x) {
+	
+	var err2str = function (e) {if (roleof(e) != "Error") return ""+e;
+    return "Error Code: {0} Facility Code: {1}, Error Message: {2}, Error Name: {3}".format(
+			e.number & 0xFFFF,
+			e.number >> 16 & 0x1FFF,
+			e.message,
+			e.name
+		);
+    };
+	       alert( err2str(x)); debugger ; return false;
+		   
+		   
+	   var wmierr = dbj.wmi.err();
+		dbj.print(
+		"Exception : {0} {1}".format(
+			   dbj.err2str(x),
+			   (wmierr ? "WMI ERROR:" + wmierr : "")
+			)
+			);
+	};
+		return true;
+	});
+});
+
 </script>
-<!---------------------------------------------------------------------------------->	
-<script src="js/swbem_ping_dbj.js"></script>
-<script src="js/dbj_app.js"></script>
-<script src="js/pingpainter_dbj.js"></script>
 </body>
 </html>

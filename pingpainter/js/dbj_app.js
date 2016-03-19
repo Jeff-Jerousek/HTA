@@ -1,20 +1,16 @@
 ﻿
-if (!dbj) {
-    alert("At this point dbj object must exist.");
-    debugger;
-}
-
-
-window.onerror = function (message, url, line) {
-    alert("ONERROR event caught!\n\nmessage: " + message + "\nurl: " + url + "\nline: " + line);
-    debugger;
-    return true;
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
+(function () { // closure start
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
+if ("undefined" == typeof dbj) {
+	alert("Whoa pardner! Where is your dbj?!");
+	return ;
 }
 
 /**
- * basically an hta app 
+ * basically an hta app services utils etc.
  */
-this.dbj.app = {
+var htautl = {
 
     trace_hide: function (newval) {
         hide_trace_ = true; // default
@@ -25,18 +21,22 @@ this.dbj.app = {
         return this.trace_hide(newval);
     },
 
-    err_handler: window.onerror,
-
-    fullpath : function (commandLine) {
-        var cmdline_ = commandLine;
-        // whatever is the cl args situation full script path comes allways in double quotes
+    err_handler: window.onerror ,
+	/*|| (window.onerror = function (message, url, line) {
+    	alert("Unahndled HTA ERROR event.\n\nmessage: " + message + "\nurl: " + url + "\nline: " + line);
+    	// debugger;
+    	return false;
+    }),*/
+	//hta commandLine is undefined when not called from er "command line" ...
+	// thus app name will be whatever is defined in HTA:APPLICATION ... if anything 
+	// so this is the safest way to obtain all the names required :)
+    fullpath: function (hta_app) {
         // on the beggining
-        var fullpath_ = cmdline_.split("\"")[1];
-
-        dbj.app.fullpath = function () {
+    	var fullpath_ = hta_app.ownerDocument.location.href; 
+        this.fullpath = function () {
             return fullpath_ ;
         }
-        return dbj.app.fullpath();
+        return this.fullpath();
     },
 
     basename : function(path_) {
@@ -51,17 +51,17 @@ this.dbj.app = {
     shell: function ( runarg ) {
         var shell_ = new ActiveXObject("wscript.shell");
         dbj.assert(shell_);
-        dbj.app.shell = function (runarg) {
+        htautl.shell = function (runarg) {
             if (isArray(runarg)) {
                 try {
                     shell_.Run(runarg[0], runarg[1] || 0, runarg[2] || false); // async run by default!
                 } catch (x) {
-                    dbj.trace("dbj.app.shell() run failed with: " + dbj.err2str(x));
+                    dbj.trace("htautl.shell() run failed with: " + dbj.err2str(x));
                 }
             }
             return shell_;
         }
-        return dbj.app.shell( runarg);
+        return htautl.shell( runarg);
     },
     /**
      * emulate the wait by pinging the localhost, 
@@ -69,6 +69,16 @@ this.dbj.app = {
      */
     wait: function (milisecs) {
         this.shell(["cmd /c ping localhost -n 1 -w " + (milisecs - 0), 0, true]);
+    },
+
+    isHTA: function (obj) {
+    	if (!obj) return false;
+    	if (!obj.nodeName) return false;
+    	if ("HTA:APPLICATION" == obj.nodeName) return true; // can happen with VStudio debugging
+    	if (!obj.scopeName) return false;
+    	if ("HTA" != obj.scopeName) return false;
+    	if ("APPLICATION" != obj.nodeName) return false;
+    	return true;
     }
 
 };
@@ -77,17 +87,18 @@ this.dbj.app = {
  once called this is not a function any more and thus that is a signal it was 
  not initialised when it was supposed to :)
 */
-this.dbj.APP = function (hta_app) {
+HTAAPP = function (hta_app) {
 
-    var dbj_hta_app = dbj.app;
+	if (! htautl.isHTA(hta_app)) {
+			alert("Whoa pardner, this is not an HTA APP?");
+			debugger;
+	}
 
-    var fullpathname = dbj_hta_app.fullpath(hta_app.commandLine);
-
-    var cfgfilename = dbj_hta_app.basename(fullpathname).replace(".hta", ".cfg");
-    var logfilename = dbj_hta_app.basename(fullpathname).replace(".hta", ".log");
+	var fullpathname = htautl.fullpath(hta_app);
+    var cfgfilename = htautl.basename(fullpathname).replace(".hta", ".cfg");
+    var logfilename = htautl.basename(fullpathname).replace(".hta", ".log");
     
-    /**
-    Synchronous file open. Not using jQuery. tranform the load to the object.
+    /** Synchronous file open. Not using jQuery.
      */
     function get_cfg(cfg_file_name_) {
         var retval = { load: null, error: null },
@@ -105,28 +116,32 @@ this.dbj.APP = function (hta_app) {
                  xhttp.statusText,
                  xhttp.readyState
                 );
-            throw retval.error;
+            alert(retval.error);
+			debugger;
         }
-            return function () { retval; }
+            return retval; 
     };
-
-    var log_ = dbj.text_stream(logfilename) ;
+	
+	var txt_stream = null ;
+	try {
+				txt_stream = text_stream(logfilename, false); // keep the previous log
+	} catch(x) {
+        alert ("Error whil creaitng text stream for {0}, {1}:".format( logfilename, dbj.err2str(x)));
+			debugger;
+	}
 
     var keeper_ = {
         "cfgfilename" : cfgfilename,
         "logfilename": logfilename,
         "cfg": get_cfg(cfgfilename).load ,
         "log":  function (s_) {
-            var tid  = setTimeout( function () {
-                try {
-                    log_.write(new Date().toLocaleTimeString() + " -- " + s_ );
-                } catch(x) {
-                    alert("Exception in dbj.print():"+ dbj.err2str(x));
-                }
-                clearTimeout(tid);
-            },1);
+        			try {
+        				txt_stream.write(new Date().toLocaleTimeString() + " -- " + s_);
+        			} catch (x) {
+        				alert ("Exception in the APP.log():" + dbj.err2str(x));
+						debugger;
         }
-    }
+    }};
 
     /**
     In the context of HTA there is no (easy) console object
@@ -143,7 +158,7 @@ this.dbj.APP = function (hta_app) {
         }
     };
 
-    keeper_.log(new Date().toLocaleDateString() + " dbj*PINGPAINTER log ");
+    keeper_.log(new Date().toLocaleDateString() + " dbj*PINGPAINTER log <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
         return keeper_;
 };
@@ -151,17 +166,15 @@ this.dbj.APP = function (hta_app) {
 /**
  each Time called re-create a file by name given
 */
-dbj.text_stream = function (filename ) {
+var text_stream = function (filename, overwrite ) {
 
     var ForReading = 1, ForWriting = 2, ForAppending = 8;
     var TristateUseDefault = -2, TristateTrue = -1, TristateFalse = 0;
     var fso = new ActiveXObject("Scripting.FileSystemObject");
-    // Create the file, and obtain a file object for the file.
-    // var filename = "c:\\testfile.txt";
-    fso.CreateTextFile(filename);
+    fso.CreateTextFile(filename, overwrite || true );
     var fileObj = fso.GetFile(filename);
 
-    return dbj.text_stream = {
+    text_stream = {
 
         "filename" : filename,
 
@@ -189,6 +202,4 @@ dbj.text_stream = function (filename ) {
 
 }
 
-
-
-
+}()); // closure end

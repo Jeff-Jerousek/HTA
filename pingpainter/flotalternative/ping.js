@@ -43,9 +43,6 @@ $.extend($, {
 	}
 });
 
-/* */
-
-var k = 0 ;
     /**
      *@param {number} data_ptr is an index on the array of 2D points
      *@param {function} cb is a callback

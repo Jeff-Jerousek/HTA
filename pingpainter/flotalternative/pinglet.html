@@ -135,7 +135,8 @@ PDA = Ping Data Accumulator
 	    min: 0,
 	    max: 0,
 	    set: function (v) {
-	        v = v - 0; // numberise
+	    	v = v - 0; // numberise
+	    	if (this.min < 1) this.min = this.mid();
 	        	if (v < this.min) { this.min = v; }
 	        	if (v > this.max) { this.max = v; }
 	        return v;
@@ -167,7 +168,7 @@ PDA = Ping Data Accumulator
 			], // eof data 
             {
                 lines: {
-                	steps: true,
+                	steps: false,
 					fill : false
                 },
                 series: {

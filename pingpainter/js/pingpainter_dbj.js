@@ -1,5 +1,11 @@
-﻿
-var ping_paint = function (ip_to_ping, output_cb, ping_rezult_display_element)
+﻿(function (GLOBAL,undefined) {
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
+if ("undefined" == typeof dbj) {
+	alert("Whoa pardner! Where is your dbj?!");
+	return ;
+}
+
+GLOBAL.ping_paint = function (ip_to_ping, output_cb, ping_rezult_display_element)
 {
     var ctr = 1, accumulator = 0, avg = 0, last_color = "";
     var counter = function () { return counter.ctr_++; };
@@ -37,3 +43,6 @@ var ping_paint = function (ip_to_ping, output_cb, ping_rezult_display_element)
     return ping_paint(ip_to_ping);
 
 };
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
+}( this || window ));
+/*||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||*/
