@@ -1,5 +1,5 @@
-#DBJ*HTA 
-##&copy; DBJ
+# DBJ*HTA 
+## &copy; DBJ
 
 This is (ment to be) repository where all decades long HTA devl will be grouped and then (hopefully) sorted out. Common components will be decoupled and encapsulated.
 
